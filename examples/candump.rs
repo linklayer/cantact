@@ -9,7 +9,7 @@ fn print_frame(f: gs_host_frame) {
 }
 
 fn main() {
-    let d = Device::new().unwrap();
+    let d = Device::new().expect("failed to open device");
     let bt = gs_device_bittiming {
         prop_seg: 0,
         phase_seg1: 13,
@@ -17,8 +17,15 @@ fn main() {
         sjw: 1,
         brp: 6,
     };
-    d.set_bit_timing(0, bt).unwrap();
-    d.set_mode(0, gs_device_mode{ mode: gs_can_mode::GS_CAN_MODE_START as u32, flags: 0 }).unwrap();
+    d.set_bit_timing(0, bt).expect("failed to set bit timing");
+    d.set_mode(
+        0,
+        gs_device_mode {
+            mode: gs_can_mode::GS_CAN_MODE_START as u32,
+            flags: 0,
+        },
+    )
+    .expect("failed to start device");
 
     loop {
         match d.get_frame() {

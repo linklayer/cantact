@@ -1,6 +1,6 @@
 use rusb;
-use std::time::Duration;
 use std::mem::size_of;
+use std::time::Duration;
 
 fn u32_from_le_bytes(bs: &[u8]) -> u32 {
     let arr: [u8; 4] = [bs[0], bs[1], bs[2], bs[3]];
@@ -9,37 +9,37 @@ fn u32_from_le_bytes(bs: &[u8]) -> u32 {
 
 #[repr(u8)]
 pub enum gs_usb_breq {
-	GS_USB_BREQ_HOST_FORMAT = 0,
-	GS_USB_BREQ_BITTIMING,
-	GS_USB_BREQ_MODE,
-	GS_USB_BREQ_BERR,
-	GS_USB_BREQ_BT_CONST,
-	GS_USB_BREQ_DEVICE_CONFIG,
-	GS_USB_BREQ_TIMESTAMP,
-	GS_USB_BREQ_IDENTIFY,
+    GS_USB_BREQ_HOST_FORMAT = 0,
+    GS_USB_BREQ_BITTIMING,
+    GS_USB_BREQ_MODE,
+    GS_USB_BREQ_BERR,
+    GS_USB_BREQ_BT_CONST,
+    GS_USB_BREQ_DEVICE_CONFIG,
+    GS_USB_BREQ_TIMESTAMP,
+    GS_USB_BREQ_IDENTIFY,
 }
 #[repr(u8)]
 pub enum gs_can_mode {
-	/* reset a channel. turns it off */
-	GS_CAN_MODE_RESET = 0,
-	/* starts a channel */
-	GS_CAN_MODE_START
+    /* reset a channel. turns it off */
+    GS_CAN_MODE_RESET = 0,
+    /* starts a channel */
+    GS_CAN_MODE_START,
 }
 
 #[repr(u8)]
 pub enum gs_can_state {
-	GS_CAN_STATE_ERROR_ACTIVE = 0,
-	GS_CAN_STATE_ERROR_WARNING,
-	GS_CAN_STATE_ERROR_PASSIVE,
-	GS_CAN_STATE_BUS_OFF,
-	GS_CAN_STATE_STOPPED,
-	GS_CAN_STATE_SLEEPING
+    GS_CAN_STATE_ERROR_ACTIVE = 0,
+    GS_CAN_STATE_ERROR_WARNING,
+    GS_CAN_STATE_ERROR_PASSIVE,
+    GS_CAN_STATE_BUS_OFF,
+    GS_CAN_STATE_STOPPED,
+    GS_CAN_STATE_SLEEPING,
 }
 
 #[repr(u8)]
 pub enum gs_can_identify_mode {
-	GS_CAN_IDENTIFY_OFF = 0,
-	GS_CAN_IDENTIFY_ON
+    GS_CAN_IDENTIFY_OFF = 0,
+    GS_CAN_IDENTIFY_ON,
 }
 
 #[repr(C)]
@@ -58,11 +58,11 @@ impl gs_device_mode {
 
 #[repr(C)]
 pub struct gs_device_bittiming {
-	pub prop_seg: u32,
-	pub phase_seg1: u32,
-	pub phase_seg2: u32,
-	pub sjw: u32,
-	pub brp: u32,
+    pub prop_seg: u32,
+    pub phase_seg1: u32,
+    pub phase_seg2: u32,
+    pub sjw: u32,
+    pub brp: u32,
 }
 impl gs_device_bittiming {
     fn to_le_bytes(&self) -> Vec<u8> {
@@ -79,20 +79,20 @@ impl gs_device_bittiming {
 #[derive(Debug)]
 #[repr(C)]
 pub struct gs_device_bt_const {
-	feature: u32,
-	fclk_can: u32,
-	tseg1_min: u32,
-	tseg1_max: u32,
-	tseg2_min: u32,
-	tseg2_max: u32,
-	sjw_max: u32,
-	brp_min: u32,
-	brp_max: u32,
-	brp_inc: u32,
+    feature: u32,
+    fclk_can: u32,
+    tseg1_min: u32,
+    tseg1_max: u32,
+    tseg2_min: u32,
+    tseg2_max: u32,
+    sjw_max: u32,
+    brp_min: u32,
+    brp_max: u32,
+    brp_inc: u32,
 }
 impl gs_device_bt_const {
     fn from_le_bytes(bs: &[u8; 40]) -> gs_device_bt_const {
-        gs_device_bt_const{
+        gs_device_bt_const {
             feature: u32_from_le_bytes(&bs[0..4]),
             fclk_can: u32_from_le_bytes(&bs[4..8]),
             tseg1_min: u32_from_le_bytes(&bs[8..12]),
@@ -100,7 +100,7 @@ impl gs_device_bt_const {
             tseg2_min: u32_from_le_bytes(&bs[16..20]),
             tseg2_max: u32_from_le_bytes(&bs[20..24]),
             sjw_max: u32_from_le_bytes(&bs[24..28]),
-            brp_min: u32_from_le_bytes(&bs[28..32]), 
+            brp_min: u32_from_le_bytes(&bs[28..32]),
             brp_max: u32_from_le_bytes(&bs[32..36]),
             brp_inc: u32_from_le_bytes(&bs[36..40]),
         }
@@ -110,15 +110,15 @@ impl gs_device_bt_const {
 #[repr(C)]
 #[derive(Debug)]
 pub struct gs_host_frame {
-	echo_id: u32,
-	pub can_id: u32,
+    pub echo_id: u32,
+    pub can_id: u32,
 
-	pub can_dlc: u8,
-	pub channel: u8,
+    pub can_dlc: u8,
+    pub channel: u8,
     pub flags: u8,
-    reserved: u8,
+    pub reserved: u8,
 
-	pub data: [u8; 8],
+    pub data: [u8; 8],
 }
 impl gs_host_frame {
     fn from_le_bytes(bs: &[u8]) -> gs_host_frame {
@@ -129,7 +129,9 @@ impl gs_host_frame {
             channel: bs[9],
             flags: bs[10],
             reserved: bs[11],
-            data: [bs[12], bs[13], bs[14], bs[15], bs[16], bs[17], bs[18], bs[19]],
+            data: [
+                bs[12], bs[13], bs[14], bs[15], bs[16], bs[17], bs[18], bs[19],
+            ],
         }
     }
     fn to_le_bytes(&self) -> Vec<u8> {
@@ -154,57 +156,90 @@ impl Device {
         for device in rusb::devices().unwrap().iter() {
             let device_desc = device.device_descriptor().unwrap();
 
-            println!("Bus {:03} Device {:03} ID {:04x}:{:04x}",
+            println!(
+                "Bus {:03} Device {:03} ID {:04x}:{:04x}",
                 device.bus_number(),
                 device.address(),
                 device_desc.vendor_id(),
-                device_desc.product_id());
-        }
-    }
-    
-    pub fn new() -> Option<Device> {
-        let hnd = rusb::open_device_with_vid_pid(0x1d50, 0x6060);
-        match hnd {
-            Some(h) => Some(Device{hnd: h}),
-            None => None
+                device_desc.product_id()
+            );
         }
     }
 
-    fn control_out(&self, req: gs_usb_breq, channel: u16, data: &[u8]) -> Result<usize, rusb::Error> {
+    pub fn new() -> Option<Device> {
+        let hnd = rusb::open_device_with_vid_pid(0x1d50, 0x606f);
+        match hnd {
+            Some(mut h) => {
+                h.claim_interface(0).unwrap();
+                Some(Device { hnd: h })
+            }
+            None => None,
+        }
+    }
+
+    fn control_out(
+        &self,
+        req: gs_usb_breq,
+        channel: u16,
+        data: &[u8],
+    ) -> Result<usize, rusb::Error> {
         let rt = rusb::request_type(
-            rusb::Direction::Out, 
-            rusb::RequestType::Vendor, 
-            rusb::Recipient::Interface);
+            rusb::Direction::Out,
+            rusb::RequestType::Vendor,
+            rusb::Recipient::Interface,
+        );
         let timeout = Duration::from_millis(1000);
         self.hnd.write_control(
-            rt,         // bmRequestType 
-            req as u8,  // bRequest
-            channel,    // wValue 
-            0,          // wIndex
-            data,       // data 
-            timeout     // timeout
+            rt,        // bmRequestType
+            req as u8, // bRequest
+            channel,   // wValue
+            0,         // wIndex
+            data,      // data
+            timeout,   // timeout
         )
     }
-    fn control_in(&self, req: gs_usb_breq, channel: u16, data: &mut [u8]) -> Result<usize, rusb::Error> {
+    fn control_in(
+        &self,
+        req: gs_usb_breq,
+        channel: u16,
+        data: &mut [u8],
+    ) -> Result<usize, rusb::Error> {
         let rt = rusb::request_type(
-            rusb::Direction::In, 
-            rusb::RequestType::Vendor, 
-            rusb::Recipient::Interface);
+            rusb::Direction::In,
+            rusb::RequestType::Vendor,
+            rusb::Recipient::Interface,
+        );
         let timeout = Duration::from_millis(1000);
         self.hnd.read_control(
-            rt,         // bmRequestType 
-            req as u8,  // bRequest
-            channel,    // wValue 
-            0,          // wIndex
-            data,       // data 
-            timeout     // timeout
+            rt,        // bmRequestType
+            req as u8, // bRequest
+            channel,   // wValue
+            0,         // wIndex
+            data,      // data
+            timeout,   // timeout
         )
     }
-    pub fn set_mode(&self, channel: u16, device_mode: gs_device_mode) -> Result<usize, rusb::Error> {
-        self.control_out(gs_usb_breq::GS_USB_BREQ_MODE, channel, &device_mode.to_le_bytes())
+    pub fn set_mode(
+        &self,
+        channel: u16,
+        device_mode: gs_device_mode,
+    ) -> Result<usize, rusb::Error> {
+        self.control_out(
+            gs_usb_breq::GS_USB_BREQ_MODE,
+            channel,
+            &device_mode.to_le_bytes(),
+        )
     }
-    pub fn set_bit_timing(&self, channel: u16, timing: gs_device_bittiming) -> Result<usize, rusb::Error> {
-        self.control_out(gs_usb_breq::GS_USB_BREQ_BITTIMING, channel, &timing.to_le_bytes())
+    pub fn set_bit_timing(
+        &self,
+        channel: u16,
+        timing: gs_device_bittiming,
+    ) -> Result<usize, rusb::Error> {
+        self.control_out(
+            gs_usb_breq::GS_USB_BREQ_BITTIMING,
+            channel,
+            &timing.to_le_bytes(),
+        )
     }
     pub fn get_bit_timing_consts(&self, channel: u16) -> Result<gs_device_bt_const, rusb::Error> {
         let mut buf: [u8; size_of::<gs_device_bt_const>()] = [0u8; size_of::<gs_device_bt_const>()];
@@ -218,7 +253,7 @@ impl Device {
         let res = self.hnd.read_bulk(0x81, &mut buf, timeout);
         match res {
             Ok(_) => Ok(gs_host_frame::from_le_bytes(&buf)),
-            Err(e) => return Err(e)
+            Err(e) => return Err(e),
         }
     }
     pub fn send_frame(&self, frame: gs_host_frame) -> Result<(), rusb::Error> {
@@ -237,13 +272,20 @@ mod tests {
         println!("{:?}", d.hnd.device().device_descriptor());
     }
     #[test]
-    fn list_devices () {
+    fn list_devices() {
         Device::list_devices();
     }
     #[test]
     fn set_mode() {
         let d = Device::new().unwrap();
-        d.set_mode(0, gs_device_mode{ mode: gs_can_mode::GS_CAN_MODE_START as u32, flags: 0 }).unwrap();
+        d.set_mode(
+            0,
+            gs_device_mode {
+                mode: gs_can_mode::GS_CAN_MODE_START as u32,
+                flags: 0,
+            },
+        )
+        .unwrap();
     }
     #[test]
     fn set_timing() {
@@ -279,7 +321,7 @@ mod tests {
             channel: 0,
             flags: 0,
             reserved: 0,
-            data: [0xCA,0xFE,0,0,0,0,0,0],
+            data: [0xCA, 0xFE, 0, 0, 0, 0, 0, 0],
         };
         d.send_frame(f).unwrap();
     }
