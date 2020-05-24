@@ -8,6 +8,10 @@ edition = "2018"
 name = "cantact"
 crate-type = ["dylib", "rlib"]
 
+[features]
+
+python = ["cpython"]
+
 [dependencies]
 rusb = "0.5"
-cpython = { version = "0.5.0", features = ["extension-module"] }
+cpython = { version = "0.5.0", features = ["extension-module"], optional = true }
