@@ -8,8 +8,11 @@ edition = "2018"
 name = "cantact"
 crate-type = ["dylib", "rlib"]
 
-[features]
+[[bin]]
+name = "candump"
+path = "src/bin/candump.rs"
 
+[features]
 python = ["cpython"]
 
 [dependencies]
