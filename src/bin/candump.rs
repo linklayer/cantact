@@ -1,4 +1,4 @@
-use cantact::{Interface, Frame};
+use cantact::{Frame, Interface};
 
 fn print_frame(f: Frame) {
     print!("  ch:{}  {:03X}   [{}]  ", f.channel, f.can_id, f.can_dlc);

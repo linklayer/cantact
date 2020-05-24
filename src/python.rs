@@ -1,6 +1,6 @@
-use cpython::*;
-use crate::Interface as RustInterface;
 use crate::Frame;
+use crate::Interface as RustInterface;
+use cpython::*;
 
 impl ToPyObject for Frame {
     type ObjectType = PyDict;
@@ -9,11 +9,12 @@ impl ToPyObject for Frame {
         dict.set_item(py, "id", self.can_id).unwrap();
         dict.set_item(py, "dlc", self.can_dlc).unwrap();
         dict.set_item(py, "channel", self.channel).unwrap();
-        dict.set_item(py, "data", PyBytes::new(py, &self.data)).unwrap();
+        dict.set_item(py, "data", PyBytes::new(py, &self.data))
+            .unwrap();
         dict
     }
 }
-/* TODO 
+/* TODO
 impl FromPyObject for Frame {
     fn extract(py: Python, obj: &PyObject) -> PyResult<Self> {
         Frame{}
@@ -56,7 +57,12 @@ py_class!(class Interface |py| {
 });
 
 py_module_initializer!(cantact, initcantact, PyInit_cantact, |py, m| {
-    m.add(py, "__doc__", "A Python wrapper for the CANtact USB library").unwrap();
+    m.add(
+        py,
+        "__doc__",
+        "A Python wrapper for the CANtact USB library",
+    )
+    .unwrap();
     m.add_class::<Interface>(py)?;
     Ok(())
 });

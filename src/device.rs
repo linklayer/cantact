@@ -4,8 +4,8 @@ use rusb;
 use std::mem::size_of;
 use std::time::Duration;
 
-const USB_VID: u16= 0x1d50;//0x606f
-const USB_PID: u16= 0x6070;//0x606f
+const USB_VID: u16 = 0x1d50; //0x606f
+const USB_PID: u16 = 0x6070; //0x606f
 
 #[repr(u8)]
 enum UsbBreq {
@@ -40,7 +40,7 @@ fn u32_from_le_bytes(bs: &[u8]) -> u32 {
 }
 
 #[repr(C)]
-pub struct Mode {
+pub(crate) struct Mode {
     pub mode: u32,
     pub flags: u32,
 }
@@ -54,7 +54,7 @@ impl Mode {
 }
 
 #[repr(C)]
-pub struct BitTiming {
+pub(crate) struct BitTiming {
     pub prop_seg: u32,
     pub phase_seg1: u32,
     pub phase_seg2: u32,
@@ -75,7 +75,7 @@ impl BitTiming {
 
 #[derive(Debug)]
 #[repr(C)]
-pub struct BitTimingConsts {
+pub(crate) struct BitTimingConsts {
     feature: u32,
     fclk_can: u32,
     tseg1_min: u32,
@@ -106,13 +106,13 @@ impl BitTimingConsts {
 
 #[derive(Debug)]
 #[repr(C)]
-pub struct DeviceConfig {
-	reserved1: u8,
-	reserved2: u8,
-	reserved3: u8,
-	pub icount: u8,
-	pub sw_version: u32,
-	pub hw_version: u32,
+pub(crate) struct DeviceConfig {
+    reserved1: u8,
+    reserved2: u8,
+    reserved3: u8,
+    icount: u8,
+    sw_version: u32,
+    hw_version: u32,
 }
 impl DeviceConfig {
     fn from_le_bytes(bs: &[u8; 12]) -> DeviceConfig {
@@ -167,45 +167,43 @@ impl HostFrame {
     }
 }
 
-pub struct Device {
+pub(crate) struct Device {
     hnd: rusb::DeviceHandle<rusb::GlobalContext>,
     timeout: Duration,
 }
 
 impl Device {
-    pub fn new() -> Option<Device> {
+    pub(crate) fn new() -> Option<Device> {
         let hnd = rusb::open_device_with_vid_pid(USB_VID, USB_PID);
         match hnd {
             Some(mut h) => {
                 h.claim_interface(0).unwrap();
-                Some(Device { hnd: h, timeout: Duration::from_millis(1000) })
+                Some(Device {
+                    hnd: h,
+                    timeout: Duration::from_millis(1000),
+                })
             }
             None => None,
         }
     }
 
-    pub fn set_timeout(&mut self, d: Duration) {
+    pub(crate) fn set_timeout(&mut self, d: Duration) {
         self.timeout = d;
     }
 
-    fn control_out(
-        &self,
-        req: UsbBreq,
-        channel: u16,
-        data: &[u8],
-    ) -> Result<usize, rusb::Error> {
+    fn control_out(&self, req: UsbBreq, channel: u16, data: &[u8]) -> Result<usize, rusb::Error> {
         let rt = rusb::request_type(
             rusb::Direction::Out,
             rusb::RequestType::Vendor,
             rusb::Recipient::Interface,
         );
         self.hnd.write_control(
-            rt,             // bmRequestType
-            req as u8,      // bRequest
-            channel,        // wValue
-            0,              // wIndex
-            data,           // data
-            self.timeout,   // timeout
+            rt,           // bmRequestType
+            req as u8,    // bRequest
+            channel,      // wValue
+            0,            // wIndex
+            data,         // data
+            self.timeout, // timeout
         )
     }
     fn control_in(
@@ -220,82 +218,58 @@ impl Device {
             rusb::Recipient::Interface,
         );
         self.hnd.read_control(
-            rt,             // bmRequestType
-            req as u8,      // bRequest
-            channel,        // wValue
-            0,              // wIndex
-            data,           // data
-            self.timeout,   // timeout
+            rt,           // bmRequestType
+            req as u8,    // bRequest
+            channel,      // wValue
+            0,            // wIndex
+            data,         // data
+            self.timeout, // timeout
         )
     }
 
-    pub fn set_host_format(&self, val: u32) -> Result<usize, rusb::Error> {
+    pub(crate) fn set_host_format(&self, val: u32) -> Result<usize, rusb::Error> {
         let channel = 0;
-        self.control_out(
-            UsbBreq::HostFormat,
-            channel,
-            &val.to_le_bytes(),
-        )
+        self.control_out(UsbBreq::HostFormat, channel, &val.to_le_bytes())
     }
 
-    pub fn set_bit_timing(
+    pub(crate) fn set_bit_timing(
         &self,
         channel: u16,
         timing: BitTiming,
     ) -> Result<usize, rusb::Error> {
-        self.control_out(
-            UsbBreq::BitTiming,
-            channel,
-            &timing.to_le_bytes(),
-        )
+        self.control_out(UsbBreq::BitTiming, channel, &timing.to_le_bytes())
     }
 
-    pub fn set_mode(
-        &self,
-        channel: u16,
-        device_mode: Mode,
-    ) -> Result<usize, rusb::Error> {
-        self.control_out(
-            UsbBreq::Mode,
-            channel,
-            &device_mode.to_le_bytes(),
-        )
+    pub(crate) fn set_mode(&self, channel: u16, device_mode: Mode) -> Result<usize, rusb::Error> {
+        self.control_out(UsbBreq::Mode, channel, &device_mode.to_le_bytes())
     }
 
-    pub fn set_identify(&self, val: u32) -> Result<usize, rusb::Error> {
+    pub(crate) fn set_identify(&self, val: u32) -> Result<usize, rusb::Error> {
         let channel = 0;
-        self.control_out(
-            UsbBreq::Identify,
-            channel,
-            &val.to_le_bytes(),
-        )
+        self.control_out(UsbBreq::Identify, channel, &val.to_le_bytes())
     }
 
-    pub fn set_berr(&self, val: u32) -> Result<usize, rusb::Error> {
+    pub(crate) fn set_berr(&self, val: u32) -> Result<usize, rusb::Error> {
         // TODO
         let channel = 0;
-        self.control_out(
-            UsbBreq::Berr,
-            channel,
-            &val.to_le_bytes(),
-        )
+        self.control_out(UsbBreq::Berr, channel, &val.to_le_bytes())
     }
 
-    pub fn get_device_config(&self) -> Result<DeviceConfig, rusb::Error> {
+    pub(crate) fn get_device_config(&self) -> Result<DeviceConfig, rusb::Error> {
         let channel = 0;
         let mut buf: [u8; size_of::<DeviceConfig>()] = [0u8; size_of::<DeviceConfig>()];
         self.control_in(UsbBreq::DeviceConfig, channel, &mut buf)?;
         Ok(DeviceConfig::from_le_bytes(&buf))
     }
 
-    pub fn get_bit_timing_consts(&self) -> Result<BitTimingConsts, rusb::Error> {
+    pub(crate) fn get_bit_timing_consts(&self) -> Result<BitTimingConsts, rusb::Error> {
         let channel = 0;
         let mut buf: [u8; size_of::<BitTimingConsts>()] = [0u8; size_of::<BitTimingConsts>()];
         self.control_in(UsbBreq::BitTimingConsts, channel, &mut buf)?;
         Ok(BitTimingConsts::from_le_bytes(&buf))
     }
 
-    pub fn get_timestamp(&self) -> Result<u32, rusb::Error> {
+    pub(crate) fn get_timestamp(&self) -> Result<u32, rusb::Error> {
         let channel = 0;
         let mut buf: [u8; size_of::<u32>()] = [0u8; size_of::<u32>()];
         self.control_in(UsbBreq::Timestamp, channel, &mut buf)?;
@@ -311,7 +285,8 @@ impl Device {
         }
     }
     pub(crate) fn send_frame(&self, frame: HostFrame) -> Result<(), rusb::Error> {
-        self.hnd.write_bulk(0x2, &frame.to_le_bytes(), self.timeout)?;
+        self.hnd
+            .write_bulk(0x2, &frame.to_le_bytes(), self.timeout)?;
         Ok(())
     }
 }
@@ -324,7 +299,7 @@ mod tests {
         let d = Device::new().unwrap();
         println!("{:?}", d.hnd.device().device_descriptor());
     }
-   #[test]
+    #[test]
     fn set_host_format() {
         let d = Device::new().unwrap();
         d.set_host_format(0x0).unwrap();
@@ -353,14 +328,14 @@ mod tests {
         )
         .unwrap();
     }
-   #[test]
+    #[test]
     fn set_identify() {
         let d = Device::new().unwrap();
         d.set_identify(1).unwrap();
         std::thread::sleep(std::time::Duration::from_millis(1000));
         d.set_identify(0).unwrap();
     }
-   #[test]
+    #[test]
     fn set_berr() {
         let d = Device::new().unwrap();
         d.set_berr(0x0).unwrap();

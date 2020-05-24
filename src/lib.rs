@@ -1,5 +1,4 @@
 /// Public API for interacting with CANtact devices.
-
 use rusb::Error as UsbError;
 mod device;
 use device::*;
@@ -43,7 +42,7 @@ impl Interface {
 
     /// Starts device CAN communication for specified channel
     pub fn start(&self, channel: u16) {
-        let mode = Mode{
+        let mode = Mode {
             mode: CanMode::Start as u32,
             flags: 0,
         };
@@ -52,7 +51,7 @@ impl Interface {
 
     /// Stops device CAN communication for specified channel
     pub fn stop(&self, channel: u16) {
-        let mode = Mode{
+        let mode = Mode {
             mode: CanMode::Reset as u32,
             flags: 0,
         };
@@ -69,7 +68,9 @@ impl Interface {
             sjw: 1,
             brp: 6,
         };
-        self.dev.set_bit_timing(0, bt).expect("failed to set bit timing");
+        self.dev
+            .set_bit_timing(0, bt)
+            .expect("failed to set bit timing");
     }
 
     /// Receives a single CAN frame from the device
