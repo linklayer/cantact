@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
+use rusb;
 /// Implementation of CANtact USB device support using libusb via rusb.
 /// This crate is not intended to be used by end users.
-use rusb;
 use std::mem::size_of;
 use std::time::Duration;
 
@@ -281,7 +281,7 @@ impl Device {
 
     pub(crate) fn get_frame(&self) -> Result<HostFrame, rusb::Error> {
         let mut buf: [u8; size_of::<HostFrame>()] = [0u8; size_of::<HostFrame>()];
-        let res = self.hnd.read_bulk(0x81, &mut buf, self.timeout);
+        let res = self.hnd.read_bulk(0x81, &mut buf, Duration::from_micros(1));
         match res {
             Ok(_) => Ok(HostFrame::from_le_bytes(&buf)),
             Err(e) => return Err(e),

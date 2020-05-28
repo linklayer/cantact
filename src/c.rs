@@ -1,4 +1,4 @@
-use crate::{Error, Frame, Interface};
+use crate::{Frame, Interface};
 
 #[repr(C)]
 pub struct CFrame {

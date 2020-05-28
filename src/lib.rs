@@ -1,9 +1,8 @@
 use rusb::Error as LibUsbError;
-use std::sync::mpsc::{channel, RecvTimeoutError, Sender};
+use std::sync::mpsc::{channel, Sender, TryRecvError};
 use std::sync::{Arc, Mutex};
 /// Public API for interacting with CANtact devices.
 use std::thread;
-use std::time;
 mod device;
 use device::*;
 
@@ -45,12 +44,13 @@ pub struct Frame {
 
 /// Public CANtact interface for interacting with devices
 pub struct Interface {
-    // when None, device thread is not running
-    // write true to stop device thread
-    stop: Option<Sender<bool>>,
-
     dev_mutex_main: Arc<Mutex<Device>>,
     dev_mutex_thread: Arc<Mutex<Device>>,
+
+    // channel for transmitting can frames to thread for tx
+    // when None, thread is not running
+    // when this Sender is dropped, the thread is stopped
+    can_tx: Option<Sender<Frame>>,
 
     // when true, frames sent by this device are received by the driver
     loopback: bool,
@@ -71,7 +71,7 @@ impl Interface {
         let i = Interface {
             dev_mutex_thread: Arc::clone(&dev_mutex),
             dev_mutex_main: dev_mutex,
-            stop: None,
+            can_tx: None,
             loopback: false,
         };
 
@@ -90,54 +90,62 @@ impl Interface {
             flags: 0,
         };
 
-        // set up the rx thread
-        let (stop_tx, stop_rx) = channel();
-        self.stop = Some(stop_tx);
+        // set up the thread
+        let (can_tx_tx, can_tx_rx) = channel();
+        self.can_tx = Some(can_tx_tx);
 
         let dev_mutex_thread = self.dev_mutex_thread.clone();
         let loopback = self.loopback.clone();
 
         thread::spawn(move || {
+            let dev = dev_mutex_thread.lock().unwrap();
+            let can_tx = can_tx_rx;
             loop {
-                {
-                    let dev = dev_mutex_thread.lock().unwrap();
-                    match dev.get_frame() {
-                        Ok(hf) => {
-                            if hf.echo_id != RX_ECHO_ID && !loopback {
-                                // frame is an echoed frame, do not treat as received
-                                // unless we're in loopback mode
-                                continue;
-                            }
-                            let f = Frame {
-                                can_id: hf.can_id,
-                                can_dlc: hf.can_dlc,
-                                data: hf.data,
-                                channel: hf.channel,
-                            };
-
-                            rx_callback(f)
+                // try to read a frame
+                match dev.get_frame() {
+                    Ok(hf) => {
+                        if hf.echo_id != RX_ECHO_ID && !loopback {
+                            // frame is an echoed frame, do not treat as received
+                            // unless we're in loopback mode
+                            continue;
                         }
-                        Err(_) => {} // TODO handle this
+                        let f = Frame {
+                            can_id: hf.can_id,
+                            can_dlc: hf.can_dlc,
+                            data: hf.data,
+                            channel: hf.channel,
+                        };
+                        rx_callback(f)
                     }
+                    Err(LibUsbError::Timeout) => {}
+                    Err(_) => { /* TODO */ }
                 }
 
-                // kill thread when requested
-                match stop_rx.recv_timeout(time::Duration::from_micros(1)) {
-                    Err(RecvTimeoutError::Timeout) => {}
-                    Ok(b) => {
-                        if b {
-                            return;
-                        }
+                // try to send a frame
+                match can_tx.try_recv() {
+                    Err(TryRecvError::Empty) => { /* no frames to send */ }
+                    Err(TryRecvError::Disconnected) => {
+                        // channel disconnected, kill thread
+                        return;
                     }
-                    Err(e) => panic!(e),
-                };
+                    Ok(f) => {
+                        let hf = HostFrame {
+                            echo_id: 1,
+                            flags: 0,
+                            reserved: 0,
+                            can_id: f.can_id,
+                            can_dlc: f.can_dlc,
+                            channel: f.channel,
+                            data: f.data,
+                        };
+                        dev.send_frame(hf).unwrap();
+                    }
+                }
             }
         });
 
         // tell the device to go on bus
-        let mut dev = self.dev_mutex_main.lock().unwrap();
-        // TODO this seems dumb
-        //dev.set_timeout(time::Duration::from_micros(100));
+        let dev = self.dev_mutex_main.lock().unwrap();
         // TODO multi-channel
         dev.set_mode(0, mode).unwrap();
         Ok(())
@@ -145,10 +153,15 @@ impl Interface {
 
     /// Stops device CAN communication
     pub fn stop(&mut self) -> Result<(), Error> {
-        let s = match &self.stop {
+        let can_tx = match &self.can_tx {
             Some(v) => v,
             None => return Err(Error::NotRunning),
         };
+
+        // drop the channel to stop the thread
+        drop(can_tx);
+        // mark thread as not running
+        self.can_tx = None;
 
         let dev = self.dev_mutex_main.lock().unwrap();
 
@@ -160,16 +173,12 @@ impl Interface {
         // TODO multi-channel
         dev.set_mode(0, mode).unwrap();
 
-        // stop the thread and mark it as not running
-        s.send(true).expect("failed to stop thread");
-        self.stop = None;
-
         Ok(())
     }
 
     /// Sets bitrate for specified channel to requested bitrate value in bits per second
     pub fn set_bitrate(&self, channel: u16, bitrate: u32) -> Result<(), Error> {
-        match &self.stop {
+        match &self.can_tx {
             None => {}
             Some(_) => return Err(Error::Running),
         };
@@ -186,19 +195,10 @@ impl Interface {
 
     /// Sends a single CAN frame using the device
     pub fn send(&self, f: Frame) -> Result<(), Error> {
-        let dev = self.dev_mutex_main.lock().unwrap();
-
-        let hf = HostFrame {
-            echo_id: 1,
-            can_id: f.can_id,
-            can_dlc: f.can_dlc,
-            channel: f.channel,
-            flags: 0,
-            reserved: 0,
-            data: f.data,
+        match &self.can_tx {
+            Some(tx) => tx.send(f).unwrap(),
+            None => return Err(Error::Running),
         };
-
-        dev.send_frame(hf).unwrap(); // TODO error handling
         Ok(())
     }
 }
