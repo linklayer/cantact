@@ -3,6 +3,7 @@ name = "cantact-driver"
 version = "0.1.0"
 authors = ["Eric Evenchick <eric@evenchick.com>"]
 edition = "2018"
+build = "build.rs"
 
 [lib]
 name = "cantact"

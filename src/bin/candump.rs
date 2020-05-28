@@ -9,7 +9,7 @@ fn print_frame(f: Frame) {
 }
 
 fn main() {
-    let i = Interface::new();
+    let i = Interface::new().unwrap();
     i.start(0);
     i.set_bitrate(0, 500000);
     loop {

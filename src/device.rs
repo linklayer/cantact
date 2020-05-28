@@ -5,7 +5,7 @@ use std::mem::size_of;
 use std::time::Duration;
 
 const USB_VID: u16 = 0x1d50; //0x606f
-const USB_PID: u16 = 0x6070; //0x606f
+const USB_PID: u16 = 0x606f; //0x606f
 
 #[repr(u8)]
 enum UsbBreq {
@@ -185,6 +185,10 @@ impl Device {
             }
             None => None,
         }
+    }
+
+    pub(crate) fn reset(&mut self) {
+        self.hnd.reset();
     }
 
     pub(crate) fn set_timeout(&mut self, d: Duration) {
