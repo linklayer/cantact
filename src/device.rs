@@ -5,7 +5,7 @@ use std::mem::size_of;
 use std::time::Duration;
 
 const USB_VID: u16 = 0x1d50; //0x606f
-const USB_PID: u16 = 0x606f; //0x606f
+const USB_PID: u16 = 0x6070; //0x606f
 
 #[repr(u8)]
 enum UsbBreq {
@@ -54,6 +54,7 @@ impl Mode {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 pub(crate) struct BitTiming {
     pub prop_seg: u32,
     pub phase_seg1: u32,

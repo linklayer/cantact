@@ -1,5 +1,9 @@
 /// Public API for interacting with CANtact devices.
-use rusb::Error as UsbError;
+use std::thread;
+use std::time;
+use std::sync::{Arc, Mutex};
+use std::sync::mpsc::{channel, Sender, Receiver, RecvTimeoutError};
+use rusb::Error as LibUsbError;
 mod device;
 use device::*;
 
@@ -16,9 +20,18 @@ pub enum Error {
     DeviceNotFound,
     /// Timeout while communicating with the device.
     Timeout,
+    /// Attempted to perform an action on a device that is running when this is not allowed.
+    Running,
+    /// Attempted to perform an action on a device that is not running when this is not allowed.
+    NotRunning,
+    /// Errors from libusb
+    UsbError(LibUsbError),
+    /// Attempt to poll while callback is enabled
+    CallbacksEnabled,
 }
 
 /// Definition of a CAN frame
+#[derive(Debug, Clone)]
 pub struct Frame {
     /// CAN frame arbitration ID
     pub can_id: u32,
@@ -32,8 +45,26 @@ pub struct Frame {
 
 /// Public CANtact interface for interacting with devices
 pub struct Interface {
-    dev: Device,
+    // when None, device thread is not running
+    // write true to stop device thread
+    stop: Option<Sender<bool>>, 
+
+    can_rx: Option<Receiver<Frame>>,
+
+    dev_mutex_main: Arc<Mutex<Device>>,
+    dev_mutex_thread: Arc<Mutex<Device>>,
+
+    rx_callback: Option<RxCallback>,
+
+    // when true, frames sent by this device are received by the driver
+    loopback: bool,
 }
+
+/// Callback to be executed when a frame is received
+type RxCallback = fn(Frame);
+
+const LOOPBACK_ECHO_ID: u32 = 4294967295;
+
 impl Interface {
     pub fn new() -> Result<Interface, Error> {
         let dev = match Device::new() {
@@ -41,8 +72,15 @@ impl Interface {
             None => return Err(Error::DeviceNotFound),
         };
 
+        let dev_mutex = Arc::new(Mutex::new(dev));
+
         let i = Interface {
-            dev: dev 
+            dev_mutex_thread: Arc::clone(&dev_mutex),
+            dev_mutex_main: dev_mutex,
+            stop: None,
+            can_rx: None,
+            rx_callback: None,
+            loopback: false,
         };
 
         // TODO get btconsts
@@ -50,55 +88,128 @@ impl Interface {
     }
 
     /// Starts device CAN communication for specified channel
-    pub fn start(&self, channel: u16) {
+    pub fn start(&mut self, ch: u16) {
         let mode = Mode {
             mode: CanMode::Start as u32,
             flags: 0,
         };
-        self.dev.set_mode(channel, mode);
+
+        // set up the rx thread
+        let (stop_tx, stop_rx) = channel();
+        self.stop = Some(stop_tx);
+
+        // can_rx_tx: received frames sent from thread to main
+        // can_rx_rx: received frames read from thread by main
+        let (can_rx_tx, can_rx_rx) = channel();
+        self.can_rx = Some(can_rx_rx);
+        let dev_mutex_thread = self.dev_mutex_thread.clone();
+        let cb = self.rx_callback.clone();
+        let loopback = self.loopback.clone();
+
+        thread::spawn(move|| {
+            let can_rx = can_rx_tx.clone();
+            loop {
+                {
+                    let dev = dev_mutex_thread.lock().unwrap();
+                    match dev.get_frame() {
+                        Ok(hf) =>  { 
+                            if hf.echo_id != LOOPBACK_ECHO_ID && !loopback {
+                                // frame is an echoed frame, do not treat as received
+                                // unless we're in loopback mode
+                                continue;
+                            }
+                            let f = Frame {
+                                can_id: hf.can_id,
+                                can_dlc: hf.can_dlc,
+                                data: hf.data,
+                                channel: hf.channel,
+                            };
+
+                            // if a callback is set, call it
+                            // if callback is None, put frame into the can_rx channel
+                            // user will fetch by polling recv function
+                            match cb {
+                                Some(cb) => cb(f),
+                                None => can_rx.send(f.clone()).unwrap(),
+                            };
+                        },
+                        Err(_) => {} // todo handle better
+                    }
+                }
+
+                // kill thread when requested
+                match stop_rx.recv_timeout(time::Duration::from_micros(10)) {
+                    Err(RecvTimeoutError::Timeout) => {},
+                    Ok(b) => if b {return},
+                    Err(e) => panic!(e),
+                };
+            }
+        });
+
+        // tell the device to go on bus
+        let dev = self.dev_mutex_main.lock().unwrap();
+        dev.set_mode(ch, mode).unwrap();
     }
 
     /// Stops device CAN communication for specified channel
-    pub fn stop(&self, channel: u16) {
+    pub fn stop(&mut self, channel: u16) -> Result<(), Error> {
+        let s = match &self.stop {
+            Some(v) => v,
+            None => return Err(Error::NotRunning),
+        };
+
+        let dev = self.dev_mutex_main.lock().unwrap();
+
         let mode = Mode {
             mode: CanMode::Reset as u32,
             flags: 0,
         };
-        self.dev.set_mode(channel, mode).unwrap();
+        dev.set_mode(channel, mode).unwrap();
+        s.send(true).expect("failed to stop thread");
+
+        self.stop = None;
+
+        Ok(())
     }
 
     /// Sets bitrate for specified channel to requested bitrate value in bits per second
-    pub fn set_bitrate(&self, channel: u16, bitrate: u32) {
-        // TODO compute for bitrate
-        let bt = BitTiming {
-            prop_seg: 0,
-            phase_seg1: 13,
-            phase_seg2: 2,
-            sjw: 1,
-            brp: 6,
+    pub fn set_bitrate(&self, channel: u16, bitrate: u32) -> Result<(), Error> {
+        match &self.stop {
+            None => {}
+            Some(_) => return Err(Error::Running),
         };
-        self.dev
-            .set_bit_timing(0, bt)
+
+        let dev = self.dev_mutex_main.lock().unwrap();
+
+        // TODO get device clock
+        let bt = calculate_bit_timing(48000000, bitrate);
+        dev.set_bit_timing(channel, bt)
             .expect("failed to set bit timing");
+
+        Ok(())
     }
 
     /// Receives a single CAN frame from the device
-    pub fn recv(&self) -> Option<Frame> {
-        let hf = match self.dev.get_frame() {
-            Ok(hf) => hf,
-            Err(e) if e == UsbError::Timeout => return None,
-            Err(_) => return None, // TODO better error handling
+    /// This function can only be called when the receive callback is None
+    pub fn recv(&self) -> Result<Frame, Error> {
+        match &self.stop {
+            None => {},
+            Some(_) => return Err(Error::NotRunning),
         };
-        Some(Frame {
-            can_id: hf.can_id,
-            can_dlc: hf.can_dlc,
-            data: hf.data,
-            channel: hf.channel,
-        })
+        match &self.rx_callback {
+            None => {},
+            Some(_) => return Err(Error::CallbacksEnabled),
+        };
+
+        let f = self.can_rx.as_ref().unwrap().recv().unwrap();
+
+        Ok(f)
     }
 
     /// Sends a single CAN frame using the device
     pub fn send(&self, f: Frame) -> Result<(), Error> {
+        let dev = self.dev_mutex_main.lock().unwrap();
+
         let hf = HostFrame {
             echo_id: 1,
             can_id: f.can_id,
@@ -108,12 +219,72 @@ impl Interface {
             reserved: 0,
             data: f.data,
         };
-        self.dev.send_frame(hf).unwrap(); // TODO error handling
+
+        dev.send_frame(hf).unwrap(); // TODO error handling
         Ok(())
     }
 
-    pub fn reset(&mut self) -> Result<(), Error> {
-        self.dev.reset();
+    /// Sets the CAN receive callback.
+    /// When the callback is set to None, polling mode is enabled and the user must
+    /// call recv to poll.
+    /// When callback is set to an RxCallback function, the callback will be executed
+    /// for each received frame.
+    pub fn set_rx_callback(&mut self, cb: Option<RxCallback>) -> Result<(), Error> {
+        match &self.stop {
+            Some(_) => return Err(Error::Running),
+            None => {}
+        };
+        self.rx_callback = cb;
         Ok(())
+    }
+}
+
+fn calculate_bit_timing(device_clk: u32, bitrate: u32) -> BitTiming {
+    // use a fixed divider and sampling point
+    let brp = 6;
+    let sample_point = 0.68;
+    
+    let can_clk = device_clk / brp;
+    // number of time quanta in segement 1 and segment 2
+    // subtract 1 for the fixed sync segment
+    let tqs = (can_clk / bitrate) - 1;
+    // split tqs into two segments
+    let seg1 = (tqs as f32 * sample_point).round() as u32;
+    let seg2 = (tqs as f32 * (1.0 - sample_point)).round() as u32;
+    println!("bitrate = {}, can_clk = {}, tqs = {}, seg1 = {}, seg2 = {}", bitrate, can_clk, tqs, seg1, seg2);
+
+    /*
+    BitTiming{
+        prop_seg: 0,
+        phase_seg1: 13,
+        phase_seg2: 2,
+        sjw: 1,
+        brp: 6,
+    }
+    */
+    BitTiming{
+        prop_seg: 0,
+        phase_seg1: seg1,
+        phase_seg2: seg2,
+        sjw: 1,
+        brp: brp,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_bit_timing() {
+        let dev_clock = 48000000;
+        let bt_1000000 = calculate_bit_timing(dev_clock, 1000000);
+        assert_eq!(bt_1000000.prop_seg + bt_1000000.phase_seg1 + bt_1000000.phase_seg2 + 1, 8);
+        let bt_500000 = calculate_bit_timing(dev_clock, 500000);
+        assert_eq!(bt_500000.prop_seg + bt_500000.phase_seg1 + bt_500000.phase_seg2 + 1, 16);
+        let bt_250000 = calculate_bit_timing(dev_clock, 250000);
+        assert_eq!(bt_250000.prop_seg + bt_250000.phase_seg1 + bt_250000.phase_seg2 + 1, 32);
+        let bt_125000 = calculate_bit_timing(dev_clock, 125000);
+        assert_eq!(bt_125000.prop_seg + bt_125000.phase_seg1 + bt_125000.phase_seg2 + 1, 64);
+        let bt_33000 = calculate_bit_timing(dev_clock, 33000);
     }
 }

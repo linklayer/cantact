@@ -36,8 +36,8 @@ pub extern "C" fn cantact_close(ptr: *mut CInterface) -> i32 {
 
 #[no_mangle]
 pub extern "C" fn cantact_start(ptr: *mut CInterface) -> i32 {
-    let ci = unsafe { &*ptr };
-    match &ci.i {
+    let ci = unsafe { &mut *ptr };
+    match &mut ci.i {
         Some(i) => i.start(0),
         None => return -1,
     }
@@ -46,9 +46,9 @@ pub extern "C" fn cantact_start(ptr: *mut CInterface) -> i32 {
 
 #[no_mangle]
 pub extern "C" fn cantact_stop(ptr: *mut CInterface) -> i32 {
-    let ci = unsafe { &*ptr };
-    match &ci.i {
-        Some(i) => i.stop(0),
+    let ci = unsafe { &mut *ptr };
+    match &mut ci.i {
+        Some(i) => i.stop(0).unwrap(),
         None => return -1,
     }
     0
@@ -74,7 +74,7 @@ pub extern "C" fn cantact_transmit(ptr: *mut CInterface, id: u32) -> i32 {
 pub extern "C" fn cantact_set_bitrate(ptr: *mut CInterface) -> i32 {
     let ci = unsafe { &*ptr };
     match &ci.i {
-        Some(i) => i.set_bitrate(0, 500000),
+        Some(i) => i.set_bitrate(0, 500000).unwrap(),
         None => return -1,
     }
     0

@@ -1,3 +1,8 @@
+use std::thread;
+use std::time;
+use std::sync::Mutex;
+use std::sync::Arc;
+use std::sync::mpsc::channel;
 use cantact::{Frame, Interface};
 
 fn print_frame(f: Frame) {
@@ -9,13 +14,16 @@ fn print_frame(f: Frame) {
 }
 
 fn main() {
-    let i = Interface::new().unwrap();
+    let mut i = Interface::new().expect("error opening device");
+    i.set_bitrate(0, 500000).expect("error setting bitrate");
+    i.set_rx_callback(Some(print_frame)).expect("error setting rx callback");
     i.start(0);
-    i.set_bitrate(0, 500000);
+
     loop {
-        match i.recv() {
-            Some(f) => print_frame(f),
-            None => {}
-        }
+        let f = Frame {can_id: 0x123, can_dlc: 8, data: [1,2,3,4,5,6,7,8], channel: 0};
+        thread::sleep(time::Duration::from_millis(1000));
+        i.send(f).unwrap();
+        println!("tx");
     }
+
 }
