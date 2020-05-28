@@ -13,10 +13,10 @@ fn print_frame(f: Frame) {
 fn main() {
     let mut i = Interface::new().expect("error opening device");
     i.set_bitrate(0, 500000).expect("error setting bitrate");
-    //i.set_rx_callback(Some(print_frame)).expect("error setting rx callback");
     i.start(|f: Frame| {
         print_frame(f);
-    });
+    })
+    .expect("failed to start device");
 
     loop {
         let f = Frame {

@@ -81,7 +81,10 @@ impl Interface {
 
     /// Starts CAN communication for the device.
     /// The rx_callback closure provided will be called on every frame received.
-    pub fn start(&mut self, mut rx_callback: impl FnMut(Frame) + Sync + Send + 'static) {
+    pub fn start(
+        &mut self,
+        mut rx_callback: impl FnMut(Frame) + Sync + Send + 'static,
+    ) -> Result<(), Error> {
         let mode = Mode {
             mode: CanMode::Start as u32,
             flags: 0,
@@ -133,7 +136,9 @@ impl Interface {
 
         // tell the device to go on bus
         let dev = self.dev_mutex_main.lock().unwrap();
+        // TODO multi-channel
         dev.set_mode(0, mode).unwrap();
+        Ok(())
     }
 
     /// Stops device CAN communication
@@ -149,9 +154,12 @@ impl Interface {
             mode: CanMode::Reset as u32,
             flags: 0,
         };
-        dev.set_mode(0, mode).unwrap();
-        s.send(true).expect("failed to stop thread");
 
+        // TODO multi-channel
+        dev.set_mode(0, mode).unwrap();
+
+        // stop the thread and mark it as not running
+        s.send(true).expect("failed to stop thread");
         self.stop = None;
 
         Ok(())

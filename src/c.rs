@@ -1,9 +1,17 @@
 use crate::{Error, Frame, Interface};
 
 #[repr(C)]
+pub struct CFrame {
+    channel: u8,
+    id: u32,
+    dlc: u8,
+    data: [u8; 8],
+}
+
+#[repr(C)]
 pub struct CInterface {
     i: Option<Interface>,
-    c_rx_cb: Option<extern "C" fn(Frame)>,
+    c_rx_cb: Option<extern "C" fn(CFrame)>,
 }
 
 #[no_mangle]
@@ -24,7 +32,7 @@ pub extern "C" fn cantact_deinit(ptr: *mut CInterface) -> i32 {
 
 pub extern "C" fn cantact_set_rx_callback(
     ptr: *mut CInterface,
-    cb: Option<extern "C" fn(Frame)>,
+    cb: Option<extern "C" fn(CFrame)>,
 ) -> i32 {
     let mut ci = unsafe { &mut *ptr };
     ci.c_rx_cb = cb;
@@ -55,14 +63,23 @@ pub extern "C" fn cantact_start(ptr: *mut CInterface) -> i32 {
 
     let cb = ci.c_rx_cb.clone();
     match &mut ci.i {
-        Some(i) => i.start(move |f: Frame| {
-            match cb {
-                None => {}
-                Some(cb) => cb(f),
-            };
-        }),
+        Some(i) => i
+            .start(move |f: Frame| {
+                match cb {
+                    None => {}
+                    Some(cb) => {
+                        cb(CFrame {
+                            channel: f.channel,
+                            id: f.can_id,
+                            dlc: f.can_dlc,
+                            data: f.data,
+                        });
+                    }
+                };
+            })
+            .expect("failed to start device"),
         None => return -1,
-    }
+    };
     0
 }
 
@@ -70,7 +87,7 @@ pub extern "C" fn cantact_start(ptr: *mut CInterface) -> i32 {
 pub extern "C" fn cantact_stop(ptr: *mut CInterface) -> i32 {
     let ci = unsafe { &mut *ptr };
     match &mut ci.i {
-        Some(i) => i.stop().unwrap(),
+        Some(i) => i.stop().expect("failed to stop device"),
         None => return -1,
     }
     0
@@ -86,7 +103,7 @@ pub extern "C" fn cantact_transmit(ptr: *mut CInterface, id: u32) -> i32 {
         data: [0xde, 0xad, 0xbe, 0xef, 0, 0, 0, 0],
     };
     match &ci.i {
-        Some(i) => i.send(f).unwrap(),
+        Some(i) => i.send(f).expect("failed to transmit frame"),
         None => return -1,
     };
     0
@@ -96,7 +113,7 @@ pub extern "C" fn cantact_transmit(ptr: *mut CInterface, id: u32) -> i32 {
 pub extern "C" fn cantact_set_bitrate(ptr: *mut CInterface) -> i32 {
     let ci = unsafe { &*ptr };
     match &ci.i {
-        Some(i) => i.set_bitrate(0, 500000).unwrap(),
+        Some(i) => i.set_bitrate(0, 500000).expect("failed to set bitrate"),
         None => return -1,
     }
     0
