@@ -63,7 +63,8 @@ pub struct Interface {
 /// Callback to be executed when a frame is received
 type RxCallback = fn(Frame);
 
-const LOOPBACK_ECHO_ID: u32 = 4294967295;
+// echo id for non-loopback frames
+const RX_ECHO_ID: u32 = 4294967295;
 
 impl Interface {
     pub fn new() -> Result<Interface, Error> {
@@ -113,7 +114,7 @@ impl Interface {
                     let dev = dev_mutex_thread.lock().unwrap();
                     match dev.get_frame() {
                         Ok(hf) =>  { 
-                            if hf.echo_id != LOOPBACK_ECHO_ID && !loopback {
+                            if hf.echo_id != RX_ECHO_ID && !loopback {
                                 // frame is an echoed frame, do not treat as received
                                 // unless we're in loopback mode
                                 continue;
