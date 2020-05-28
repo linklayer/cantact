@@ -1,18 +1,33 @@
-use crate::{Interface, Frame, Error};
+use crate::{Error, Frame, Interface};
 
 #[repr(C)]
 pub struct CInterface {
     i: Option<Interface>,
+    c_rx_cb: Option<extern "C" fn(Frame)>,
 }
 
 #[no_mangle]
 pub extern "C" fn cantact_init() -> *mut CInterface {
-    Box::into_raw(Box::new(CInterface{i: None}))
+    Box::into_raw(Box::new(CInterface {
+        i: None,
+        c_rx_cb: None,
+    }))
 }
 
 #[no_mangle]
 pub extern "C" fn cantact_deinit(ptr: *mut CInterface) -> i32 {
-    unsafe { Box::from_raw(ptr); }; 
+    unsafe {
+        Box::from_raw(ptr);
+    };
+    0
+}
+
+pub extern "C" fn cantact_set_rx_callback(
+    ptr: *mut CInterface,
+    cb: Option<extern "C" fn(Frame)>,
+) -> i32 {
+    let mut ci = unsafe { &mut *ptr };
+    ci.c_rx_cb = cb;
     0
 }
 
@@ -37,8 +52,15 @@ pub extern "C" fn cantact_close(ptr: *mut CInterface) -> i32 {
 #[no_mangle]
 pub extern "C" fn cantact_start(ptr: *mut CInterface) -> i32 {
     let ci = unsafe { &mut *ptr };
+
+    let cb = ci.c_rx_cb.clone();
     match &mut ci.i {
-        Some(i) => i.start(0),
+        Some(i) => i.start(move |f: Frame| {
+            match cb {
+                None => {}
+                Some(cb) => cb(f),
+            };
+        }),
         None => return -1,
     }
     0
@@ -48,7 +70,7 @@ pub extern "C" fn cantact_start(ptr: *mut CInterface) -> i32 {
 pub extern "C" fn cantact_stop(ptr: *mut CInterface) -> i32 {
     let ci = unsafe { &mut *ptr };
     match &mut ci.i {
-        Some(i) => i.stop(0).unwrap(),
+        Some(i) => i.stop().unwrap(),
         None => return -1,
     }
     0
@@ -61,7 +83,7 @@ pub extern "C" fn cantact_transmit(ptr: *mut CInterface, id: u32) -> i32 {
         can_id: id,
         can_dlc: 8,
         channel: 0,
-        data: [0xde, 0xad, 0xbe, 0xef, 0,0,0,0],
+        data: [0xde, 0xad, 0xbe, 0xef, 0, 0, 0, 0],
     };
     match &ci.i {
         Some(i) => i.send(f).unwrap(),
@@ -81,6 +103,6 @@ pub extern "C" fn cantact_set_bitrate(ptr: *mut CInterface) -> i32 {
 }
 
 #[no_mangle]
-pub extern "C" fn cantact_set_bitrate_user(ptr: *mut CInterface) -> i32 {
+pub extern "C" fn cantact_set_bitrate_user(_ptr: *mut CInterface) -> i32 {
     0
 }

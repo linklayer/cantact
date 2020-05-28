@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 /// Implementation of CANtact USB device support using libusb via rusb.
 /// This crate is not intended to be used by end users.
 use rusb;
@@ -186,10 +188,6 @@ impl Device {
             }
             None => None,
         }
-    }
-
-    pub(crate) fn reset(&mut self) {
-        self.hnd.reset();
     }
 
     pub(crate) fn set_timeout(&mut self, d: Duration) {
