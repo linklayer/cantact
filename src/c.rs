@@ -11,7 +11,7 @@ pub struct CFrame {
 #[repr(C)]
 pub struct CInterface {
     i: Option<Interface>,
-    c_rx_cb: Option<extern "C" fn(CFrame)>,
+    c_rx_cb: Option<extern "C" fn(*const CFrame)>,
 }
 
 #[no_mangle]
@@ -30,9 +30,10 @@ pub extern "C" fn cantact_deinit(ptr: *mut CInterface) -> i32 {
     0
 }
 
+#[no_mangle]
 pub extern "C" fn cantact_set_rx_callback(
     ptr: *mut CInterface,
-    cb: Option<extern "C" fn(CFrame)>,
+    cb: Option<extern "C" fn(*const CFrame)>,
 ) -> i32 {
     let mut ci = unsafe { &mut *ptr };
     ci.c_rx_cb = cb;
@@ -65,15 +66,19 @@ pub extern "C" fn cantact_start(ptr: *mut CInterface) -> i32 {
     match &mut ci.i {
         Some(i) => i
             .start(move |f: Frame| {
+                let cf = CFrame {
+                    channel: f.channel,
+                    id: f.can_id,
+                    dlc: f.can_dlc,
+                    data: f.data,
+                };
                 match cb {
                     None => {}
                     Some(cb) => {
-                        cb(CFrame {
-                            channel: f.channel,
-                            id: f.can_id,
-                            dlc: f.can_dlc,
-                            data: f.data,
-                        });
+                        //let cf = CFrame{channel: 0, id: 1, dlc: 2, data: [1,2,3,4,5,6,7,8]};
+                        cb(&cf);
+                        // free the allocated box
+                        //unsafe {Box::from_raw(cf);};
                     }
                 };
             })
@@ -94,13 +99,13 @@ pub extern "C" fn cantact_stop(ptr: *mut CInterface) -> i32 {
 }
 
 #[no_mangle]
-pub extern "C" fn cantact_transmit(ptr: *mut CInterface, id: u32) -> i32 {
+pub extern "C" fn cantact_transmit(ptr: *mut CInterface, cf: &CFrame) -> i32 {
     let ci = unsafe { &*ptr };
     let f = Frame {
-        can_id: id,
-        can_dlc: 8,
-        channel: 0,
-        data: [0xde, 0xad, 0xbe, 0xef, 0, 0, 0, 0],
+        can_id: cf.id,
+        can_dlc: cf.dlc,
+        channel: cf.channel,
+        data: cf.data,
     };
     match &ci.i {
         Some(i) => i.send(f).expect("failed to transmit frame"),

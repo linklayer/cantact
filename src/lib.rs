@@ -122,7 +122,7 @@ impl Interface {
                 }
 
                 // kill thread when requested
-                match stop_rx.recv_timeout(time::Duration::from_micros(10)) {
+                match stop_rx.recv_timeout(time::Duration::from_micros(1)) {
                     Err(RecvTimeoutError::Timeout) => {}
                     Ok(b) => {
                         if b {
@@ -135,7 +135,9 @@ impl Interface {
         });
 
         // tell the device to go on bus
-        let dev = self.dev_mutex_main.lock().unwrap();
+        let mut dev = self.dev_mutex_main.lock().unwrap();
+        // TODO this seems dumb
+        //dev.set_timeout(time::Duration::from_micros(100));
         // TODO multi-channel
         dev.set_mode(0, mode).unwrap();
         Ok(())
