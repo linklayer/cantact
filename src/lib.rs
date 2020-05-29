@@ -197,7 +197,7 @@ impl Interface {
     pub fn send(&self, f: Frame) -> Result<(), Error> {
         match &self.can_tx {
             Some(tx) => tx.send(f).unwrap(),
-            None => return Err(Error::Running),
+            None => return Err(Error::NotRunning),
         };
         Ok(())
     }

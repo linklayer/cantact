@@ -7,7 +7,7 @@ use std::mem::size_of;
 use std::time::Duration;
 
 const USB_VID: u16 = 0x1d50; //0x606f
-const USB_PID: u16 = 0x606f; //0x606f
+const USB_PID: u16 = 0x6070; //0x606f
 
 #[repr(u8)]
 enum UsbBreq {
@@ -281,7 +281,7 @@ impl Device {
 
     pub(crate) fn get_frame(&self) -> Result<HostFrame, rusb::Error> {
         let mut buf: [u8; size_of::<HostFrame>()] = [0u8; size_of::<HostFrame>()];
-        let res = self.hnd.read_bulk(0x81, &mut buf, Duration::from_micros(1));
+        let res = self.hnd.read_bulk(0x81, &mut buf, Duration::from_millis(1));
         match res {
             Ok(_) => Ok(HostFrame::from_le_bytes(&buf)),
             Err(e) => return Err(e),

@@ -13,6 +13,7 @@ fn print_frame(f: Frame) {
 fn main() {
     let mut i = Interface::new().expect("error opening device");
     i.set_bitrate(0, 500000).expect("error setting bitrate");
+
     i.start(|f: Frame| {
         print_frame(f);
     })
