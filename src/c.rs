@@ -11,10 +11,12 @@ pub struct CFrame {
     id: u32,
     dlc: u8,
     data: [u8; 8],
-    ext: bool,
-    fd: bool,
-    loopback: bool,
-    rtr: bool,
+    // these types are boolean flags, but C FFI hates bools
+    // use u8s instead: 1 = true, 0 = false
+    ext: u8,
+    fd: u8,
+    loopback: u8,
+    rtr: u8,
 }
 impl CFrame {
     fn from_frame(f: Frame) -> CFrame {
@@ -23,22 +25,10 @@ impl CFrame {
             id: f.can_id,
             dlc: f.can_dlc,
             data: f.data,
-            ext: f.ext,
-            fd: f.fd,
-            loopback: f.loopback,
-            rtr: false,
-        }
-    }
-    fn to_frame(&self) -> Frame {
-        Frame {
-            can_id: self.id,
-            can_dlc: self.dlc,
-            channel: self.channel,
-            data: self.data,
-            ext: self.ext,
-            fd: self.fd,
-            loopback: self.loopback,
-            rtr: self.rtr,
+            ext: if f.ext {1} else {0},
+            fd: if f.fd {1} else {0},
+            loopback: 0,
+            rtr: if f.fd {1} else {0},
         }
     }
 }
@@ -145,10 +135,20 @@ pub extern "C" fn cantact_stop(ptr: *mut CInterface) -> i32 {
 
 /// Transmit a frame. Can only be called if the device is running.
 #[no_mangle]
-pub extern "C" fn cantact_transmit(ptr: *mut CInterface, cf: &CFrame) -> i32 {
+pub extern "C" fn cantact_transmit(ptr: *mut CInterface, cf: CFrame) -> i32 {
     let ci = unsafe { &*ptr };
+    let f = Frame {
+        channel: 0,//cf.channel,
+        can_id: cf.id,
+        can_dlc: cf.dlc,
+        data: cf.data,
+        ext: cf.ext > 0,
+        fd: cf.fd > 0,
+        loopback: false,
+        rtr: cf.rtr > 0,
+    };
     match &ci.i {
-        Some(i) => i.send(cf.to_frame()).expect("failed to transmit frame"),
+        Some(i) => { i.send(f).expect("failed to transmit frame") }
         None => return -1,
     };
     0
