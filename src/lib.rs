@@ -111,15 +111,17 @@ impl Frame {
         let ext = (hf.can_id & GSUSB_EXT_FLAG) > 0;
         // remove flag from CAN ID
         let can_id = hf.can_id & 0x7FFFFFFF;
+        // loopback frame if echo_id is not -1
+        let loopback = hf.echo_id != RX_ECHO_ID;
         Frame {
             can_id: can_id,
             can_dlc: hf.can_dlc,
             data: hf.data,
             channel: hf.channel,
             ext: ext,
-            fd: false,       //TODO
-            loopback: false, //TODO
-            rtr: false,      //TODO
+            fd: false, //TODO
+            loopback: loopback,
+            rtr: false, //TODO
         }
     }
 }
@@ -156,7 +158,7 @@ impl Interface {
             dev_mutex_thread: Arc::clone(&dev_mutex),
             dev_mutex_main: dev_mutex,
             can_tx: None,
-            loopback: false,
+            loopback: true,
         };
 
         // TODO get btconsts
@@ -221,11 +223,7 @@ impl Interface {
                             return;
                         }
                         Ok(f) => {
-                            let mut hf = f.to_host_frame();
-                            //hf.echo_id = echo_id;
-                            dev.send_frame(hf).unwrap();
-                            //println!("sent echo id {}", echo_id);
-                            //echo_id = echo_id + 1;
+                            dev.send_frame(f.to_host_frame()).unwrap();
                         }
                     }
                 }

@@ -27,7 +27,7 @@ impl CFrame {
             data: f.data,
             ext: if f.ext { 1 } else { 0 },
             fd: if f.fd { 1 } else { 0 },
-            loopback: 0,
+            loopback: if f.loopback { 1 } else { 0 },
             rtr: if f.fd { 1 } else { 0 },
         }
     }
