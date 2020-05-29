@@ -1,12 +1,25 @@
+//! This crate provides a userspace driver for the CANtact family of
+//! Controller Area Network (CAN) devices.
+//!
+//! The rust library provided by this crate can be used directly to build
+//! applications for CANtact. The crate also provides bindings for other
+//! langauges.
+//!
+//! Internally, this crate uses the [rusb](https://github.com/a1ien/rusb)
+//! library to communicate with the device via libusb. This works on
+//! Linux, Mac, and Windows systems with libusb installed. No additional
+//! driver installation is required.
+
+#![warn(missing_docs)]
+
 use rusb::Error as LibUsbError;
 use std::sync::mpsc::{channel, Sender, TryRecvError};
 use std::sync::{Arc, Mutex};
-/// Public API for interacting with CANtact devices.
 use std::thread;
+
 mod device;
 use device::*;
 
-/// Implementation of C bindings
 pub mod c;
 /// Implementation of Python bindings
 #[cfg(python)]
@@ -17,32 +30,99 @@ pub mod python;
 pub enum Error {
     /// During setup, the device could not be found on the system.
     DeviceNotFound,
+
     /// Timeout while communicating with the device.
     Timeout,
+
     /// Attempted to perform an action on a device that is running when this is not allowed.
     Running,
+
     /// Attempted to perform an action on a device that is not running when this is not allowed.
     NotRunning,
-    /// Errors from libusb
+
+    /// Errors from libusb.
     UsbError(LibUsbError),
-    /// Attempt to poll while callback is enabled
-    CallbacksEnabled,
 }
 
-/// Definition of a CAN frame
+/// Controller Area Network Frame
 #[derive(Debug, Clone)]
 pub struct Frame {
-    /// CAN frame arbitration ID
+    /// CAN frame arbitration ID.
     pub can_id: u32,
-    /// CAN frame Data Length Code (DLC)
+
+    /// CAN frame Data Length Code (DLC).
     pub can_dlc: u8,
-    /// Device channel used to send or receive the frame
+
+    /// Device channel used to send or receive the frame.
     pub channel: u8,
-    /// Frame data contents
+
+    /// Frame data contents.
     pub data: [u8; 8],
+
+    /// Extended (29 bit) arbitration identifier if true,
+    /// standard (11 bit) arbitration identifer if false.
+    pub ext: bool,
+
+    /// CAN Flexible Data (CAN-FD) frame flag.
+    pub fd: bool,
+
+    /// Loopback flag. When true, frame was sent by this device/channel.
+    /// False for received frames.
+    pub loopback: bool,
+
+    /// Remote Transmission Request (RTR) flag.
+    pub rtr: bool,
+}
+impl Frame {
+    // convert to a frame format expected by the device
+    fn to_host_frame(&self) -> HostFrame {
+        // if frame is extended, set the extended bit in host frame CAN ID
+        let can_id = if self.ext {
+            self.can_id | GSUSB_EXT_FLAG
+        } else {
+            self.can_id
+        };
+        HostFrame {
+            echo_id: 1,
+            flags: 0,
+            reserved: 0,
+            can_id: can_id,
+            can_dlc: self.can_dlc,
+            channel: self.channel,
+            data: self.data,
+        }
+    }
+    /// Returns a default CAN frame with all values set to zero/false.
+    pub fn default() -> Frame {
+        Frame {
+            can_id: 0,
+            can_dlc: 0,
+            data: [0u8; 8],
+            channel: 0,
+            ext: false,
+            fd: false,
+            loopback: false,
+            rtr: false,
+        }
+    }
+    fn from_host_frame(hf: HostFrame) -> Frame {
+        // check the extended bit of host frame
+        // if set, frame is extended
+        let ext = (hf.can_id & GSUSB_EXT_FLAG) > 0;
+        Frame {
+            can_id: hf.can_id,
+            can_dlc: hf.can_dlc,
+            data: hf.data,
+            channel: hf.channel,
+            ext: ext,
+            fd: false,       //TODO
+            loopback: false, //TODO
+            rtr: false,      //TODO
+        }
+    }
 }
 
-/// Public CANtact interface for interacting with devices
+/// Interface for interacting with CANtact devices
 pub struct Interface {
     dev_mutex_main: Arc<Mutex<Device>>,
     dev_mutex_thread: Arc<Mutex<Device>>,
@@ -60,6 +140,8 @@ pub struct Interface {
 const RX_ECHO_ID: u32 = 4294967295;
 
 impl Interface {
+    /// Creates a new interface. This always selects the first device found by
+    /// libusb. If no device is found, Error::DeviceNotFound is returned.
     pub fn new() -> Result<Interface, Error> {
         let dev = match Device::new() {
             Some(d) => d,
@@ -79,8 +161,15 @@ impl Interface {
         Ok(i)
     }
 
-    /// Starts CAN communication for the device.
-    /// The rx_callback closure provided will be called on every frame received.
+    /// Start CAN communication on all configured channels.
+    /// This function starts a thread to communicate with the device.
+    ///
+    /// Once started, the device mutex will be locked until the thread
+    /// is stopped by calling `Interface.stop`. No changes to device
+    /// configuration can be performed while the device is running.
+    ///
+    /// After starting the device, `Interface.send` can be used to send frames.
+    /// For every received frame, the `rx_callback` closure will be called.
     pub fn start(
         &mut self,
         mut rx_callback: impl FnMut(Frame) + Sync + Send + 'static,
@@ -97,6 +186,12 @@ impl Interface {
         let dev_mutex_thread = self.dev_mutex_thread.clone();
         let loopback = self.loopback.clone();
 
+        // tell the device to go on bus
+        let dev = self.dev_mutex_main.lock().unwrap();
+        // TODO multi-channel
+        dev.set_mode(0, mode).unwrap();
+
+        // run the device interaction thread
         thread::spawn(move || {
             let dev = dev_mutex_thread.lock().unwrap();
             let can_tx = can_tx_rx;
@@ -109,13 +204,7 @@ impl Interface {
                             // unless we're in loopback mode
                             continue;
                         }
-                        let f = Frame {
-                            can_id: hf.can_id,
-                            can_dlc: hf.can_dlc,
-                            data: hf.data,
-                            channel: hf.channel,
-                        };
-                        rx_callback(f)
+                        rx_callback(Frame::from_host_frame(hf))
                     }
                     Err(LibUsbError::Timeout) => {}
                     Err(_) => { /* TODO */ }
@@ -129,29 +218,16 @@ impl Interface {
                         return;
                     }
                     Ok(f) => {
-                        let hf = HostFrame {
-                            echo_id: 1,
-                            flags: 0,
-                            reserved: 0,
-                            can_id: f.can_id,
-                            can_dlc: f.can_dlc,
-                            channel: f.channel,
-                            data: f.data,
-                        };
-                        dev.send_frame(hf).unwrap();
+                        dev.send_frame(f.to_host_frame()).unwrap();
                     }
                 }
             }
         });
 
-        // tell the device to go on bus
-        let dev = self.dev_mutex_main.lock().unwrap();
-        // TODO multi-channel
-        dev.set_mode(0, mode).unwrap();
         Ok(())
     }
 
-    /// Stops device CAN communication
+    /// Stop CAN communication on all channels.
     pub fn stop(&mut self) -> Result<(), Error> {
         let can_tx = match &self.can_tx {
             Some(v) => v,
@@ -176,7 +252,7 @@ impl Interface {
         Ok(())
     }
 
-    /// Sets bitrate for specified channel to requested bitrate value in bits per second
+    /// Set bitrate for specified channel to requested bitrate value in bits per second.
     pub fn set_bitrate(&self, channel: u16, bitrate: u32) -> Result<(), Error> {
         match &self.can_tx {
             None => {}
@@ -193,7 +269,7 @@ impl Interface {
         Ok(())
     }
 
-    /// Sends a single CAN frame using the device
+    /// Send a CAN frame using the device
     pub fn send(&self, f: Frame) -> Result<(), Error> {
         match &self.can_tx {
             Some(tx) => tx.send(f).unwrap(),
@@ -215,20 +291,7 @@ fn calculate_bit_timing(device_clk: u32, bitrate: u32) -> BitTiming {
     // split tqs into two segments
     let seg1 = (tqs as f32 * sample_point).round() as u32;
     let seg2 = (tqs as f32 * (1.0 - sample_point)).round() as u32;
-    println!(
-        "bitrate = {}, can_clk = {}, tqs = {}, seg1 = {}, seg2 = {}",
-        bitrate, can_clk, tqs, seg1, seg2
-    );
 
-    /*
-    BitTiming{
-        prop_seg: 0,
-        phase_seg1: 13,
-        phase_seg2: 2,
-        sjw: 1,
-        brp: 6,
-    }
-    */
     BitTiming {
         prop_seg: 0,
         phase_seg1: seg1,

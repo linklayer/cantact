@@ -9,6 +9,9 @@ use std::time::Duration;
 const USB_VID: u16 = 0x1d50; //0x606f
 const USB_PID: u16 = 0x6070; //0x606f
 
+// can id is OR'd with flag when frame is extended
+pub(crate) const GSUSB_EXT_FLAG: u32 = 0x80000000;
+
 #[repr(u8)]
 enum UsbBreq {
     HostFormat = 0,
