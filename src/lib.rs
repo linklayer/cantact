@@ -77,11 +77,13 @@ impl Frame {
     // convert to a frame format expected by the device
     fn to_host_frame(&self) -> HostFrame {
         // if frame is extended, set the extended bit in host frame CAN ID
-        let can_id = if self.ext {
+        let mut can_id = if self.ext {
             self.can_id | GSUSB_EXT_FLAG
         } else {
             self.can_id
         };
+        // if frame is RTR, set the RTR bit in host frame CAN ID
+        can_id = if self.rtr { can_id | GSUSB_RTR_FLAG } else { can_id };
         HostFrame {
             echo_id: 1,
             flags: 0,
@@ -109,8 +111,11 @@ impl Frame {
         // check the extended bit of host frame
         // if set, frame is extended
         let ext = (hf.can_id & GSUSB_EXT_FLAG) > 0;
-        // remove flag from CAN ID
-        let can_id = hf.can_id & 0x7FFFFFFF;
+        // check the RTR bit of host frame
+        // if set, frame is RTR
+        let rtr = (hf.can_id & GSUSB_RTR_FLAG) > 0;
+        // remove flags from CAN ID
+        let can_id = hf.can_id & 0x3FFFFFFF;
         // loopback frame if echo_id is not -1
         let loopback = hf.echo_id != RX_ECHO_ID;
         Frame {
@@ -121,7 +126,7 @@ impl Frame {
             ext: ext,
             fd: false, //TODO
             loopback: loopback,
-            rtr: false, //TODO
+            rtr: rtr,
         }
     }
 }
@@ -213,7 +218,6 @@ impl Interface {
                     Err(LibUsbError::Timeout) => {}
                     Err(_) => { /* TODO */ }
                 }
-
                 // send frames until queue is empty
                 loop {
                     match can_tx.try_recv() {
