@@ -109,8 +109,10 @@ impl Frame {
         // check the extended bit of host frame
         // if set, frame is extended
         let ext = (hf.can_id & GSUSB_EXT_FLAG) > 0;
+        // remove flag from CAN ID
+        let can_id = hf.can_id & 0x7FFFFFFF;
         Frame {
-            can_id: hf.can_id,
+            can_id: can_id,
             can_dlc: hf.can_dlc,
             data: hf.data,
             channel: hf.channel,
