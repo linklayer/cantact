@@ -25,10 +25,10 @@ impl CFrame {
             id: f.can_id,
             dlc: f.can_dlc,
             data: f.data,
-            ext: if f.ext {1} else {0},
-            fd: if f.fd {1} else {0},
+            ext: if f.ext { 1 } else { 0 },
+            fd: if f.fd { 1 } else { 0 },
             loopback: 0,
-            rtr: if f.fd {1} else {0},
+            rtr: if f.fd { 1 } else { 0 },
         }
     }
 }
@@ -138,7 +138,7 @@ pub extern "C" fn cantact_stop(ptr: *mut CInterface) -> i32 {
 pub extern "C" fn cantact_transmit(ptr: *mut CInterface, cf: CFrame) -> i32 {
     let ci = unsafe { &*ptr };
     let f = Frame {
-        channel: 0,//cf.channel,
+        channel: 0, //cf.channel,
         can_id: cf.id,
         can_dlc: cf.dlc,
         data: cf.data,
@@ -148,7 +148,7 @@ pub extern "C" fn cantact_transmit(ptr: *mut CInterface, cf: CFrame) -> i32 {
         rtr: cf.rtr > 0,
     };
     match &ci.i {
-        Some(i) => { i.send(f).expect("failed to transmit frame") }
+        Some(i) => i.send(f).expect("failed to transmit frame"),
         None => return -1,
     };
     0

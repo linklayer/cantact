@@ -13,7 +13,7 @@
 #![warn(missing_docs)]
 
 use rusb::Error as LibUsbError;
-use std::sync::mpsc::{channel, Sender, TryRecvError};
+use std::sync::mpsc::{sync_channel, SyncSender, TryRecvError};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -132,7 +132,7 @@ pub struct Interface {
     // channel for transmitting can frames to thread for tx
     // when None, thread is not running
     // when this Sender is dropped, the thread is stopped
-    can_tx: Option<Sender<Frame>>,
+    can_tx: Option<SyncSender<Frame>>,
 
     // when true, frames sent by this device are received by the driver
     loopback: bool,
@@ -182,7 +182,7 @@ impl Interface {
         };
 
         // set up the thread
-        let (can_tx_tx, can_tx_rx) = channel();
+        let (can_tx_tx, can_tx_rx) = sync_channel(1);
         self.can_tx = Some(can_tx_tx);
 
         let dev_mutex_thread = self.dev_mutex_thread.clone();
@@ -212,15 +212,21 @@ impl Interface {
                     Err(_) => { /* TODO */ }
                 }
 
-                // try to send a frame
-                match can_tx.try_recv() {
-                    Err(TryRecvError::Empty) => { /* no frames to send */ }
-                    Err(TryRecvError::Disconnected) => {
-                        // channel disconnected, kill thread
-                        return;
-                    }
-                    Ok(f) => {
-                        dev.send_frame(f.to_host_frame()).unwrap();
+                // send frames until queue is empty
+                loop {
+                    match can_tx.try_recv() {
+                        Err(TryRecvError::Empty) => break,
+                        Err(TryRecvError::Disconnected) => {
+                            // channel disconnected, kill thread
+                            return;
+                        }
+                        Ok(f) => {
+                            let mut hf = f.to_host_frame();
+                            //hf.echo_id = echo_id;
+                            dev.send_frame(hf).unwrap();
+                            //println!("sent echo id {}", echo_id);
+                            //echo_id = echo_id + 1;
+                        }
                     }
                 }
             }
