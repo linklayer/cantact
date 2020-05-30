@@ -13,7 +13,7 @@
 #![warn(missing_docs)]
 
 use rusb::Error as LibUsbError;
-use std::sync::mpsc::{sync_channel, SyncSender, TryRecvError};
+use std::sync::mpsc::{channel, sync_channel, SyncSender, RecvError, TryRecvError};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -192,6 +192,8 @@ impl Interface {
         let (can_tx_tx, can_tx_rx) = sync_channel(1);
         self.can_tx = Some(can_tx_tx);
 
+        let (can_rx_tx, can_rx_rx) = channel();
+
         let dev_mutex_thread = self.dev_mutex_thread.clone();
         let loopback = self.loopback.clone();
 
@@ -213,7 +215,8 @@ impl Interface {
                             // unless we're in loopback mode
                             continue;
                         }
-                        rx_callback(Frame::from_host_frame(hf))
+                        //rx_callback(Frame::from_host_frame(hf))
+                        can_rx_tx.send(Frame::from_host_frame(hf));
                     }
                     Err(LibUsbError::Timeout) => {}
                     Err(_) => { /* TODO */ }
@@ -230,6 +233,16 @@ impl Interface {
                             dev.send_frame(f.to_host_frame()).unwrap();
                         }
                     }
+                }
+            }
+        });
+
+        // rx callback thread
+        thread::spawn(move || {
+            loop {
+                match can_rx_rx.recv() {
+                    Ok(f) => rx_callback(f),
+                    Err(RecvError) => return,
                 }
             }
         });

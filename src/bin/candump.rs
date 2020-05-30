@@ -1,4 +1,6 @@
 use cantact::{Frame, Interface};
+use std::thread;
+use std::time::Duration;
 
 fn print_frame(f: Frame) {
     print!("  ch:{}  {:03X}   [{}]  ", f.channel, f.can_id, f.can_dlc);
@@ -16,10 +18,12 @@ fn main() {
 
     // start the device
     // provides a closure to be called when a frame is received
-    i.start(|f: Frame| {
+    i.start(move|f: Frame| {
         print_frame(f);
     })
     .expect("failed to start device");
 
-    loop {}
+    loop {
+        thread::sleep(Duration::from_millis(1000));
+    }
 }

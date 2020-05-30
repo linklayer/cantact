@@ -286,12 +286,10 @@ impl Device {
 
     pub(crate) fn get_frame(&self) -> Result<HostFrame, rusb::Error> {
         let mut buf: [u8; size_of::<HostFrame>()] = [0u8; size_of::<HostFrame>()];
-        let res = self.hnd.read_bulk(0x81, &mut buf, Duration::from_millis(1));
-        match res {
-            Ok(_) => Ok(HostFrame::from_le_bytes(&buf)),
-            Err(e) => return Err(e),
-        }
+        self.hnd.read_bulk(0x81, &mut buf, Duration::from_millis(1))?;
+        Ok(HostFrame::from_le_bytes(&buf))
     }
+
     pub(crate) fn send_frame(&self, frame: HostFrame) -> Result<(), rusb::Error> {
         self.hnd
             .write_bulk(0x2, &frame.to_le_bytes(), self.timeout)?;
