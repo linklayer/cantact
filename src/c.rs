@@ -157,8 +157,8 @@ pub extern "C" fn cantact_transmit(ptr: *mut CInterface, cf: CFrame) -> i32 {
 /// TODO
 #[no_mangle]
 pub extern "C" fn cantact_set_bitrate(ptr: *mut CInterface) -> i32 {
-    let ci = unsafe { &*ptr };
-    match &ci.i {
+    let ci = unsafe { &mut *ptr };
+    match &mut ci.i {
         Some(i) => i.set_bitrate(0, 500000).expect("failed to set bitrate"),
         None => return -1,
     }

@@ -12,12 +12,12 @@
 
 #![warn(missing_docs)]
 
-use rusb::Error as LibUsbError;
-use std::sync::mpsc::{channel, sync_channel, SyncSender, RecvError, TryRecvError};
+use std::sync::mpsc::{channel, sync_channel, RecvError, SyncSender, TryRecvError};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
 mod device;
+use device::gsusb::*;
 use device::*;
 
 pub mod c;
@@ -41,7 +41,7 @@ pub enum Error {
     NotRunning,
 
     /// Errors from libusb.
-    UsbError(LibUsbError),
+    UsbError,
 }
 
 /// Controller Area Network Frame
@@ -83,7 +83,11 @@ impl Frame {
             self.can_id
         };
         // if frame is RTR, set the RTR bit in host frame CAN ID
-        can_id = if self.rtr { can_id | GSUSB_RTR_FLAG } else { can_id };
+        can_id = if self.rtr {
+            can_id | GSUSB_RTR_FLAG
+        } else {
+            can_id
+        };
         HostFrame {
             echo_id: 1,
             flags: 0,
@@ -133,8 +137,7 @@ impl Frame {
 
 /// Interface for interacting with CANtact devices
 pub struct Interface {
-    dev_mutex_main: Arc<Mutex<Device>>,
-    dev_mutex_thread: Arc<Mutex<Device>>,
+    dev: Device,
 
     // channel for transmitting can frames to thread for tx
     // when None, thread is not running
@@ -152,16 +155,14 @@ impl Interface {
     /// Creates a new interface. This always selects the first device found by
     /// libusb. If no device is found, Error::DeviceNotFound is returned.
     pub fn new() -> Result<Interface, Error> {
-        let dev = match Device::new() {
+        let usb = UsbContext::new();
+        let dev = match Device::new(usb) {
             Some(d) => d,
             None => return Err(Error::DeviceNotFound),
         };
 
-        let dev_mutex = Arc::new(Mutex::new(dev));
-
         let i = Interface {
-            dev_mutex_thread: Arc::clone(&dev_mutex),
-            dev_mutex_main: dev_mutex,
+            dev: dev,
             can_tx: None,
             loopback: true,
         };
@@ -187,66 +188,20 @@ impl Interface {
             mode: CanMode::Start as u32,
             flags: 0,
         };
-
-        // set up the thread
-        let (can_tx_tx, can_tx_rx) = sync_channel(1);
-        self.can_tx = Some(can_tx_tx);
-
-        let (can_rx_tx, can_rx_rx) = channel();
-
-        let dev_mutex_thread = self.dev_mutex_thread.clone();
         let loopback = self.loopback.clone();
 
         // tell the device to go on bus
-        let dev = self.dev_mutex_main.lock().unwrap();
         // TODO multi-channel
-        dev.set_mode(0, mode).unwrap();
+        self.dev.set_mode(0, mode).unwrap();
 
-        // run the device interaction thread
-        thread::spawn(move || {
-            let dev = dev_mutex_thread.lock().unwrap();
-            let can_tx = can_tx_rx;
-            loop {
-                // try to read a frame
-                match dev.get_frame() {
-                    Ok(hf) => {
-                        if hf.echo_id != RX_ECHO_ID && !loopback {
-                            // frame is an echoed frame, do not treat as received
-                            // unless we're in loopback mode
-                            continue;
-                        }
-                        //rx_callback(Frame::from_host_frame(hf))
-                        can_rx_tx.send(Frame::from_host_frame(hf));
-                    }
-                    Err(LibUsbError::Timeout) => {}
-                    Err(_) => { /* TODO */ }
-                }
-                // send frames until queue is empty
-                loop {
-                    match can_tx.try_recv() {
-                        Err(TryRecvError::Empty) => break,
-                        Err(TryRecvError::Disconnected) => {
-                            // channel disconnected, kill thread
-                            return;
-                        }
-                        Ok(f) => {
-                            dev.send_frame(f.to_host_frame()).unwrap();
-                        }
-                    }
-                }
-            }
-        });
-
+        let can_rx = self.dev.can_rx_recv.clone();
         // rx callback thread
-        thread::spawn(move || {
-            loop {
-                match can_rx_rx.recv() {
-                    Ok(f) => rx_callback(f),
-                    Err(RecvError) => return,
-                }
+        thread::spawn(move || loop {
+            match can_rx.try_recv() {
+                Ok(hf) => rx_callback(Frame::from_host_frame(hf)),
+                Err(_) => {}
             }
         });
-
         Ok(())
     }
 
@@ -262,31 +217,28 @@ impl Interface {
         // mark thread as not running
         self.can_tx = None;
 
-        let dev = self.dev_mutex_main.lock().unwrap();
-
         let mode = Mode {
             mode: CanMode::Reset as u32,
             flags: 0,
         };
 
         // TODO multi-channel
-        dev.set_mode(0, mode).unwrap();
+        self.dev.set_mode(0, mode).unwrap();
 
         Ok(())
     }
 
     /// Set bitrate for specified channel to requested bitrate value in bits per second.
-    pub fn set_bitrate(&self, channel: u16, bitrate: u32) -> Result<(), Error> {
+    pub fn set_bitrate(&mut self, channel: u16, bitrate: u32) -> Result<(), Error> {
         match &self.can_tx {
             None => {}
             Some(_) => return Err(Error::Running),
         };
 
-        let dev = self.dev_mutex_main.lock().unwrap();
-
         // TODO get device clock
         let bt = calculate_bit_timing(48000000, bitrate);
-        dev.set_bit_timing(channel, bt)
+        self.dev
+            .set_bit_timing(channel, bt)
             .expect("failed to set bit timing");
 
         Ok(())

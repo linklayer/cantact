@@ -1,8 +1,8 @@
 use cantact::{Frame, Interface};
-use std::thread;
-use std::time::Duration;
 use std::fs::File;
 use std::io::prelude::*;
+use std::thread;
+use std::time::Duration;
 
 fn print_frame(file: &mut File, f: Frame) {
     let mut s = format!("  ch:{}  {:03X}   [{}]  ", f.channel, f.can_id, f.can_dlc);
@@ -11,7 +11,6 @@ fn print_frame(file: &mut File, f: Frame) {
     }
     s = format!("{}\n", s);
     file.write_all(s.as_bytes()).unwrap();
-    
 }
 
 fn main() {
@@ -24,7 +23,7 @@ fn main() {
 
     // start the device
     // provides a closure to be called when a frame is received
-    i.start(move|f: Frame| {
+    i.start(move |f: Frame| {
         print_frame(&mut file, f);
     })
     .expect("failed to start device");
