@@ -17,7 +17,7 @@ path = "src/bin/candump.rs"
 python = ["cpython"]
 
 [dependencies]
-libusb1-sys = {version = "0.3", path="../../libusb1-sys"}
+libusb1-sys = {version = "0.3" }
 cpython = { version = "0.5.0", features = ["extension-module"], optional = true }
 libc = "0.2.71"
 crossbeam-channel = "0.4"
