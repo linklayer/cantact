@@ -4,11 +4,6 @@
 //! The rust library provided by this crate can be used directly to build
 //! applications for CANtact. The crate also provides bindings for other
 //! langauges.
-//!
-//! Internally, this crate uses the [rusb](https://github.com/a1ien/rusb)
-//! library to communicate with the device via libusb. This works on
-//! Linux, Mac, and Windows systems with libusb installed. No additional
-//! driver installation is required.
 
 #![warn(missing_docs)]
 
@@ -155,8 +150,7 @@ impl Interface {
     /// Creates a new interface. This always selects the first device found by
     /// libusb. If no device is found, Error::DeviceNotFound is returned.
     pub fn new() -> Result<Interface, Error> {
-        let usb = UsbContext::new();
-        let dev = match Device::new(usb) {
+        let dev = match Device::new(UsbContext::new()) {
             Some(d) => d,
             None => return Err(Error::DeviceNotFound),
         };
@@ -188,20 +182,23 @@ impl Interface {
             mode: CanMode::Start as u32,
             flags: 0,
         };
+
         let loopback = self.loopback.clone();
 
         // tell the device to go on bus
         // TODO multi-channel
         self.dev.set_mode(0, mode).unwrap();
 
-        let can_rx = self.dev.can_rx_recv.clone();
         // rx callback thread
+        let can_rx = self.dev.can_rx_recv.clone();
         thread::spawn(move || loop {
             match can_rx.try_recv() {
                 Ok(hf) => rx_callback(Frame::from_host_frame(hf)),
                 Err(_) => {}
             }
         });
+
+        self.dev.start_transfers();
         Ok(())
     }
 

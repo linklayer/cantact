@@ -86,8 +86,8 @@ extern "system" fn bulk_out_cb(xfer: *mut libusb_transfer) {
 }
 
 extern "system" fn bulk_in_cb(xfer: *mut libusb_transfer) {
-    let dev_ptr = unsafe { (*xfer).user_data };
-    let dev = unsafe { &mut *(dev_ptr as *mut Device) };
+    let dev_ptr = unsafe { (*xfer).user_data as *mut Device };
+    let dev = unsafe { &mut *dev_ptr };
     let status = unsafe { (*xfer).status };
 
     if status == LIBUSB_TRANSFER_COMPLETED {
@@ -143,27 +143,25 @@ impl Device {
             can_rx_recv: recv,
         };
 
-        // create the in transfers, fill the transfers, and submit them
-        for i in 0..BULK_IN_TRANSFER_COUNT {
-            let xfer = unsafe { libusb_alloc_transfer(0) };
-            d.in_transfers[i] = xfer;
-            d.fill_bulk_in_transfer(i);
-            unsafe { libusb_submit_transfer(d.in_transfers[i]) };
-        }
-
         // start the libusb event thread
-        d.event_loop();
-
-        Some(d)
-    }
-
-    fn event_loop(&self) {
-        let ctx = self.ctx.clone();
+        let ctx = d.ctx.clone();
         thread::spawn(move || loop {
             unsafe {
                 libusb_handle_events_completed(ctx.as_ptr(), ptr::null_mut());
             }
         });
+
+        Some(d)
+    }
+
+    pub(crate) fn start_transfers(&mut self) {
+        // create the in transfers, fill the transfers, and submit them
+        for i in 0..BULK_IN_TRANSFER_COUNT {
+            let xfer = unsafe { libusb_alloc_transfer(0) };
+            self.in_transfers[i] = xfer;
+            self.fill_bulk_in_transfer(i);
+            unsafe { libusb_submit_transfer(self.in_transfers[i]) };
+        }
     }
 
     fn fill_control_transfer(
