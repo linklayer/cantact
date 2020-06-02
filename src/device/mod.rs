@@ -17,6 +17,8 @@ pub(crate) use gsusb::*;
 const USB_VID: u16 = 0x1d50; //0x606f
 const USB_PID: u16 = 0x6070; //0x606f
 
+// buffer size for control in/out transfers
+const CTRL_BUF_SIZE: usize = 64;
 // number of bulk in transfers
 const BULK_IN_TRANSFER_COUNT: usize = 32;
 // buffer size for bulk in transfer
@@ -25,7 +27,7 @@ const BULK_IN_BUF_SIZE: usize = 32;
 const BULK_IN_TIMEOUT_MS: u32 = 5000;
 
 #[derive(Debug)]
-pub(crate) enum Error {
+pub enum Error {
     LibusbError(i32),
     DeviceNotFound,
     TransferAllocFailed,
@@ -59,12 +61,11 @@ impl Drop for UsbContext {
     }
 }
 
-#[derive(Debug)]
 pub(crate) struct Device {
     ctx: Arc<UsbContext>,
     hnd: ptr::NonNull<libusb_device_handle>,
     ctrl_transfer: ptr::NonNull<libusb_transfer>,
-    ctrl_buf: Vec<u8>,
+    ctrl_buf: [u8; CTRL_BUF_SIZE],
     ctrl_transfer_pending: RwLock<bool>,
 
     out_transfer: ptr::NonNull<libusb_transfer>,
@@ -139,7 +140,7 @@ impl Device {
             hnd: unsafe { ptr::NonNull::new_unchecked(hnd) },
 
             ctrl_transfer: unsafe { ptr::NonNull::new_unchecked(ctrl_transfer) },
-            ctrl_buf: vec![],
+            ctrl_buf: [0u8; CTRL_BUF_SIZE],
             ctrl_transfer_pending: RwLock::from(false),
 
             out_transfer: unsafe { ptr::NonNull::new_unchecked(ctrl_transfer) },
@@ -201,29 +202,29 @@ impl Device {
         index: u16,
         data: &[u8],
     ) {
-        let buf = &mut self.ctrl_buf;
         let mut transfer = unsafe { &mut *self.ctrl_transfer.as_ptr() };
 
-        let mut setup = vec![
-            request_type,
-            request,
-            (value & 0xFF) as u8,
-            (value >> 8) as u8,
-            (index & 0xFF) as u8,
-            (index >> 8) as u8,
-            (data.len() & 0xFF) as u8,
-            (data.len() >> 8) as u8,
-        ];
-        buf.clear();
-        buf.append(&mut setup);
-        buf.append(&mut data.to_vec());
+        // clear buffer
+        self.ctrl_buf = [0u8; CTRL_BUF_SIZE];
+        // setup packet
+        self.ctrl_buf[0] = request_type; // bmRequestType
+        self.ctrl_buf[1] = request; // bRequest
+        self.ctrl_buf[2] = (value & 0xFF) as u8; // wValue
+        self.ctrl_buf[3] = (value >> 8) as u8;
+        self.ctrl_buf[4] = (index & 0xFF) as u8; // wIndex
+        self.ctrl_buf[5] = (index >> 8) as u8;
+        self.ctrl_buf[6] = (data.len() & 0xFF) as u8; // wLength
+        self.ctrl_buf[7] = (data.len() >> 8) as u8;
+        for i in 0..data.len() {
+            self.ctrl_buf[i + 8] = data[i];
+        }
 
         transfer.dev_handle = self.hnd.as_ptr();
-        transfer.endpoint = 0; // control EP
+        transfer.endpoint = request_type & 0x80; // control EP (0 for out, 0x80 for in)
         transfer.transfer_type = LIBUSB_TRANSFER_TYPE_CONTROL;
         transfer.timeout = 1000;
-        transfer.buffer = buf.as_mut_ptr();
-        transfer.length = buf.len() as i32;
+        transfer.buffer = self.ctrl_buf.as_mut_ptr();
+        transfer.length = self.ctrl_buf.len() as i32;
         transfer.callback = ctrl_cb;
         transfer.user_data = self as *mut _ as *mut c_void;
     }
@@ -271,9 +272,9 @@ impl Device {
         Ok(())
     }
 
-    fn control_in(&mut self, req: UsbBreq, channel: u16, data: &mut [u8]) -> Result<usize, Error> {
+    fn control_in(&mut self, req: UsbBreq, channel: u16, len: usize) -> Result<Vec<u8>, Error> {
         let rt = 0b11000001;
-        self.fill_control_transfer(rt, req as u8, channel, 0, data);
+        self.fill_control_transfer(rt, req as u8, channel, 0, &vec![0u8; len].as_slice());
         *self.ctrl_transfer_pending.write().unwrap() = true;
         match unsafe { libusb_submit_transfer(self.ctrl_transfer.as_ptr()) } {
             LIBUSB_SUCCESS => {}
@@ -282,8 +283,9 @@ impl Device {
 
         // wait for transfer to complete
         while *self.ctrl_transfer_pending.read().unwrap() {}
+        let xfer_len = unsafe { (*self.ctrl_transfer.as_ptr()).actual_length } as usize;
 
-        Ok(0)
+        Ok(self.ctrl_buf[8..8 + xfer_len].to_vec())
     }
 
     pub(crate) fn set_host_format(&mut self, val: u32) -> Result<(), Error> {
@@ -312,23 +314,25 @@ impl Device {
 
     pub(crate) fn get_device_config(&mut self) -> Result<DeviceConfig, Error> {
         let channel = 0;
-        let mut buf: [u8; size_of::<DeviceConfig>()] = [0u8; size_of::<DeviceConfig>()];
-        self.control_in(UsbBreq::DeviceConfig, channel, &mut buf)?;
-        Ok(DeviceConfig::from_le_bytes(&buf))
+        let data = self.control_in(UsbBreq::DeviceConfig, channel, size_of::<DeviceConfig>())?;
+        Ok(DeviceConfig::from_le_bytes(&data))
     }
 
     pub(crate) fn get_bit_timing_consts(&mut self) -> Result<BitTimingConsts, Error> {
         let channel = 0;
-        let mut buf: [u8; size_of::<BitTimingConsts>()] = [0u8; size_of::<BitTimingConsts>()];
-        self.control_in(UsbBreq::BitTimingConsts, channel, &mut buf)?;
-        Ok(BitTimingConsts::from_le_bytes(&buf))
+        let data = self.control_in(
+            UsbBreq::BitTimingConsts,
+            channel,
+            size_of::<BitTimingConsts>(),
+        )?;
+        Ok(BitTimingConsts::from_le_bytes(&data))
     }
 
     pub(crate) fn get_timestamp(&mut self) -> Result<u32, Error> {
         let channel = 0;
-        let mut buf: [u8; size_of::<u32>()] = [0u8; size_of::<u32>()];
-        self.control_in(UsbBreq::Timestamp, channel, &mut buf)?;
-        Ok(u32::from_le_bytes(buf))
+        let data = self.control_in(UsbBreq::Timestamp, channel, size_of::<u32>())?;
+        let bytes = [data[0], data[1], data[2], data[3]];
+        Ok(u32::from_le_bytes(bytes))
     }
 
     pub(crate) fn send(&mut self, frame: HostFrame) -> Result<(), Error> {

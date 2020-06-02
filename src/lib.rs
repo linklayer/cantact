@@ -7,6 +7,7 @@
 
 #![warn(missing_docs)]
 
+use std::fmt;
 use std::sync::{Arc, RwLock};
 use std::thread;
 
@@ -24,18 +25,23 @@ pub mod python;
 pub enum Error {
     /// During setup, the device could not be found on the system.
     DeviceNotFound,
-
     /// Timeout while communicating with the device.
     Timeout,
-
     /// Attempted to perform an action on a device that is running when this is not allowed.
     Running,
-
     /// Attempted to perform an action on a device that is not running when this is not allowed.
     NotRunning,
-
-    /// Errors from libusb.
-    UsbError,
+    /// Requested channel index does not exist on device.
+    InvalidChannel,
+    /// Errors from device interaction.
+    DeviceError(device::Error),
+}
+impl From<device::Error> for Error {
+    fn from(e: device::Error) -> Error {
+        // TODO
+        // this could do a much better job of converting
+        Error::DeviceError(e)
+    }
 }
 
 /// Controller Area Network Frame
@@ -129,27 +135,75 @@ impl Frame {
     }
 }
 
+/// Configuration for a device's CAN channel.
+#[derive(Debug)]
+pub struct Channel {
+    bitrate: u32,
+    enabled: bool,
+}
+
 /// Interface for interacting with CANtact devices
 pub struct Interface {
     dev: Device,
     running: Arc<RwLock<bool>>,
+
+    can_clock: u32,
+    // zero indexed (0 = 1 channel, 1 = 2 channels, etc...)
+    channel_count: usize,
+    sw_version: u32,
+    hw_version: u32,
+
+    channels: Vec<Channel>,
+}
+
+impl fmt::Debug for Interface {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Interface")
+            .field("running", &(*self.running.read().unwrap()))
+            .field("can_clock", &self.can_clock)
+            .field("channel_count", &self.channel_count)
+            .field("sw_version", &self.sw_version)
+            .field("hw_version", &self.hw_version)
+            .field("channels", &self.channels)
+            .finish()
+    }
 }
 
 impl Interface {
     /// Creates a new interface. This always selects the first device found by
     /// libusb. If no device is found, Error::DeviceNotFound is returned.
     pub fn new() -> Result<Interface, Error> {
-        let dev = match Device::new(UsbContext::new()) {
+        let mut dev = match Device::new(UsbContext::new()) {
             Ok(d) => d,
             Err(_) => return Err(Error::DeviceNotFound),
         };
 
+        let dev_config = dev.get_device_config()?;
+        let bt_consts = dev.get_bit_timing_consts()?;
+
+        let channel_count = dev_config.icount as usize;
+
+        let mut channels = Vec::new();
+        // note: channel_count is zero indexed
+        for _ in 0..(channel_count + 1) {
+            channels.push(Channel {
+                bitrate: 0,
+                enabled: true,
+            });
+        }
+
         let i = Interface {
             dev: dev,
             running: Arc::new(RwLock::from(false)),
+
+            can_clock: bt_consts.fclk_can,
+            channel_count: channel_count,
+            sw_version: dev_config.sw_version,
+            hw_version: dev_config.hw_version,
+
+            channels: channels,
         };
 
-        // TODO get btconsts
         Ok(i)
     }
 
@@ -161,14 +215,16 @@ impl Interface {
         &mut self,
         mut rx_callback: impl FnMut(Frame) + Sync + Send + 'static,
     ) -> Result<(), Error> {
-        let mode = Mode {
-            mode: CanMode::Start as u32,
-            flags: 0,
-        };
-
         // tell the device to go on bus
-        // TODO multi-channel
-        self.dev.set_mode(0, mode).unwrap();
+        for (i, ch) in self.channels.iter().enumerate() {
+            let mode = Mode {
+                mode: CanMode::Start as u32,
+                flags: 0,
+            };
+            if ch.enabled {
+                self.dev.set_mode(i as u16, mode).unwrap();
+            }
+        }
 
         {
             *self.running.write().unwrap() = true;
@@ -207,13 +263,17 @@ impl Interface {
     }
 
     /// Set bitrate for specified channel to requested bitrate value in bits per second.
-    pub fn set_bitrate(&mut self, channel: u16, bitrate: u32) -> Result<(), Error> {
-        // TODO get device clock
-        let bt = calculate_bit_timing(48000000, bitrate);
+    pub fn set_bitrate(&mut self, channel: usize, bitrate: u32) -> Result<(), Error> {
+        if channel > self.channel_count {
+            return Err(Error::InvalidChannel);
+        }
+
+        let bt = calculate_bit_timing(self.can_clock, bitrate);
         self.dev
-            .set_bit_timing(channel, bt)
+            .set_bit_timing(channel as u16, bt)
             .expect("failed to set bit timing");
 
+        self.channels[channel].bitrate = bitrate;
         Ok(())
     }
 
@@ -221,6 +281,11 @@ impl Interface {
     pub fn send(&mut self, f: Frame) -> Result<(), Error> {
         self.dev.send(f.to_host_frame()).unwrap();
         Ok(())
+    }
+
+    /// Returns the number of channels this Interface has
+    pub fn channels(&self) -> usize {
+        self.channels.len()
     }
 }
 

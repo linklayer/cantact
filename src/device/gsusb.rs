@@ -79,7 +79,7 @@ impl BitTiming {
 #[repr(C)]
 pub(crate) struct BitTimingConsts {
     feature: u32,
-    fclk_can: u32,
+    pub(crate) fclk_can: u32,
     tseg1_min: u32,
     tseg1_max: u32,
     tseg2_min: u32,
@@ -90,7 +90,7 @@ pub(crate) struct BitTimingConsts {
     brp_inc: u32,
 }
 impl BitTimingConsts {
-    pub(crate) fn from_le_bytes(bs: &[u8; 40]) -> BitTimingConsts {
+    pub(crate) fn from_le_bytes(bs: &Vec<u8>) -> BitTimingConsts {
         BitTimingConsts {
             feature: u32_from_le_bytes(&bs[0..4]),
             fclk_can: u32_from_le_bytes(&bs[4..8]),
@@ -112,12 +112,12 @@ pub(crate) struct DeviceConfig {
     reserved1: u8,
     reserved2: u8,
     reserved3: u8,
-    icount: u8,
-    sw_version: u32,
-    hw_version: u32,
+    pub(crate) icount: u8,
+    pub(crate) sw_version: u32,
+    pub(crate) hw_version: u32,
 }
 impl DeviceConfig {
-    pub(crate) fn from_le_bytes(bs: &[u8; 12]) -> DeviceConfig {
+    pub(crate) fn from_le_bytes(bs: &Vec<u8>) -> DeviceConfig {
         DeviceConfig {
             reserved1: bs[0],
             reserved2: bs[1],

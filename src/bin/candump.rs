@@ -13,8 +13,10 @@ fn print_frame(f: Frame) {
 fn main() {
     // initialize the interface
     let mut i = Interface::new().expect("error opening device");
-    // configure the CAN channel
-    i.set_bitrate(0, 500000).expect("error setting bitrate");
+    // configure the CAN channel(s)
+    for ch in 0..i.channels() {
+        i.set_bitrate(ch, 500000).expect("error setting bitrate");
+    }
 
     // start the device
     // provides a closure to be called when a frame is received
@@ -22,6 +24,8 @@ fn main() {
         print_frame(f);
     })
     .expect("failed to start device");
+
+    println!("{:?}", i);
 
     loop {
         thread::sleep(Duration::from_millis(1000));
