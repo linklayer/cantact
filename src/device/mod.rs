@@ -9,6 +9,7 @@ use std::ptr;
 use std::sync::Arc;
 use std::sync::RwLock;
 use std::thread;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub mod gsusb;
 pub(crate) use gsusb::*;
@@ -46,7 +47,7 @@ impl UsbContext {
     pub(crate) fn new() -> UsbContext {
         let mut context = mem::MaybeUninit::<*mut libusb_context>::uninit();
         match unsafe { libusb_init(context.as_mut_ptr()) } {
-            0 => UsbContext {
+            LIBUSB_SUCCESS => UsbContext {
                 ctx: unsafe { context.assume_init() },
             },
             _ => panic!("could not initialize libusb context"),
@@ -65,6 +66,8 @@ impl Drop for UsbContext {
 pub(crate) struct Device {
     ctx: Arc<UsbContext>,
     hnd: ptr::NonNull<libusb_device_handle>,
+    running: Arc<AtomicBool>,
+
     ctrl_transfer: ptr::NonNull<libusb_transfer>,
     ctrl_buf: [u8; CTRL_BUF_SIZE],
     ctrl_transfer_pending: RwLock<bool>,
@@ -122,7 +125,7 @@ impl Device {
         }
 
         match unsafe { libusb_claim_interface(hnd, 0) } {
-            0 => {}
+            LIBUSB_SUCCESS => {}
             e => return Err(Error::LibusbError(e)),
         }
 
@@ -139,6 +142,7 @@ impl Device {
         let d = Device {
             ctx: Arc::new(ctx),
             hnd: unsafe { ptr::NonNull::new_unchecked(hnd) },
+            running: Arc::new(AtomicBool::new(true)),
 
             ctrl_transfer: unsafe { ptr::NonNull::new_unchecked(ctrl_transfer) },
             ctrl_buf: [0u8; CTRL_BUF_SIZE],
@@ -157,7 +161,8 @@ impl Device {
 
         // start the libusb event thread
         let ctx = d.ctx.clone();
-        thread::spawn(move || loop {
+        let running = d.running.clone();
+        thread::spawn(move || while running.load(Ordering::SeqCst) {
             unsafe {
                 libusb_handle_events(ctx.as_ptr());
             }
@@ -193,6 +198,7 @@ impl Device {
             }
             match unsafe { libusb_cancel_transfer(*xfer) } {
                 LIBUSB_SUCCESS => {}
+                LIBUSB_ERROR_NOT_FOUND => { /* already destroyed */ }
                 e => return Err(Error::LibusbError(e)),
             }
         }
@@ -379,6 +385,9 @@ impl Device {
 
 impl Drop for Device {
     fn drop(&mut self) {
+        // stop the threau
+        self.running.store(false, Ordering::SeqCst);
+
         self.stop_transfers().unwrap();
         unsafe {
             libusb_release_interface(self.hnd.as_ptr(), 0);

@@ -1,6 +1,7 @@
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use ctrlc;
 use cantact::{Frame, Interface};
-use std::thread;
-use std::time::Duration;
 
 fn print_frame(f: Frame) {
     let mut s = format!("  ch:{}  {:03X}   [{}]  ", f.channel, f.can_id, f.can_dlc);
@@ -11,6 +12,13 @@ fn print_frame(f: Frame) {
 }
 
 fn main() {
+    let running = Arc::new(AtomicBool::new(true));
+    let r = running.clone();
+
+    ctrlc::set_handler(move || {
+        r.store(false, Ordering::SeqCst);
+    }).expect("Error setting Ctrl-C handler");
+
     // initialize the interface
     let mut i = Interface::new().expect("error opening device");
     // configure the CAN channel(s)
@@ -25,7 +33,7 @@ fn main() {
     })
     .expect("failed to start device");
 
-    loop {
-        thread::sleep(Duration::from_millis(1000));
-    }
+
+    while running.load(Ordering::SeqCst) {}
+    i.stop().expect("failed to stop device");
 }
