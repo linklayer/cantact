@@ -5,6 +5,8 @@
 pub(crate) const GSUSB_EXT_FLAG: u32 = 0x80000000;
 // can id is OR'd with flag when frame is RTR
 pub(crate) const GSUSB_RTR_FLAG: u32 = 0x40000000;
+// echo id for non-loopback frames
+pub(crate) const GSUSB_RX_ECHO_ID: u32 = 0xFFFFFFFF;
 
 #[repr(u8)]
 pub(crate) enum UsbBreq {

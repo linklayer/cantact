@@ -1,6 +1,6 @@
 use cantact::{Frame, Interface};
 use std::thread;
-use std::time;
+use std::time::Duration;
 
 fn main() {
     // initialize the interface
@@ -13,14 +13,14 @@ fn main() {
 
     let mut count = 0;
     let mut f = Frame::default();
-    f.rtr = true;
+    f.can_dlc = 8;
     loop {
         f.can_id = count % 0x800;
-        i.send(f.clone());
-        thread::sleep(time::Duration::from_millis(1000));
-        count = (count + 1);
+        i.send(f.clone()).unwrap();
+        count = count + 1;
         if count % 1000 == 0 {
             println!("{}", count)
         }
+        thread::sleep(Duration::from_millis(0));
     }
 }

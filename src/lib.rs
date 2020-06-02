@@ -7,8 +7,7 @@
 
 #![warn(missing_docs)]
 
-use std::sync::mpsc::{channel, sync_channel, RecvError, SyncSender, TryRecvError};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 use std::thread;
 
 mod device;
@@ -116,7 +115,7 @@ impl Frame {
         // remove flags from CAN ID
         let can_id = hf.can_id & 0x3FFFFFFF;
         // loopback frame if echo_id is not -1
-        let loopback = hf.echo_id != RX_ECHO_ID;
+        let loopback = hf.echo_id != GSUSB_RX_ECHO_ID;
         Frame {
             can_id: can_id,
             can_dlc: hf.can_dlc,
@@ -133,32 +132,21 @@ impl Frame {
 /// Interface for interacting with CANtact devices
 pub struct Interface {
     dev: Device,
-
-    // channel for transmitting can frames to thread for tx
-    // when None, thread is not running
-    // when this Sender is dropped, the thread is stopped
-    can_tx: Option<SyncSender<Frame>>,
-
-    // when true, frames sent by this device are received by the driver
-    loopback: bool,
+    running: Arc<RwLock<bool>>,
 }
-
-// echo id for non-loopback frames
-const RX_ECHO_ID: u32 = 4294967295;
 
 impl Interface {
     /// Creates a new interface. This always selects the first device found by
     /// libusb. If no device is found, Error::DeviceNotFound is returned.
     pub fn new() -> Result<Interface, Error> {
         let dev = match Device::new(UsbContext::new()) {
-            Some(d) => d,
-            None => return Err(Error::DeviceNotFound),
+            Ok(d) => d,
+            Err(_) => return Err(Error::DeviceNotFound),
         };
 
         let i = Interface {
             dev: dev,
-            can_tx: None,
-            loopback: true,
+            running: Arc::new(RwLock::from(false)),
         };
 
         // TODO get btconsts
@@ -166,11 +154,6 @@ impl Interface {
     }
 
     /// Start CAN communication on all configured channels.
-    /// This function starts a thread to communicate with the device.
-    ///
-    /// Once started, the device mutex will be locked until the thread
-    /// is stopped by calling `Interface.stop`. No changes to device
-    /// configuration can be performed while the device is running.
     ///
     /// After starting the device, `Interface.send` can be used to send frames.
     /// For every received frame, the `rx_callback` closure will be called.
@@ -183,37 +166,32 @@ impl Interface {
             flags: 0,
         };
 
-        let loopback = self.loopback.clone();
-
         // tell the device to go on bus
         // TODO multi-channel
         self.dev.set_mode(0, mode).unwrap();
 
+        {
+            *self.running.write().unwrap() = true;
+        }
+
         // rx callback thread
         let can_rx = self.dev.can_rx_recv.clone();
-        thread::spawn(move || loop {
-            match can_rx.try_recv() {
-                Ok(hf) => rx_callback(Frame::from_host_frame(hf)),
-                Err(_) => {}
+        let running = Arc::clone(&self.running);
+        thread::spawn(move || {
+            while *running.read().unwrap() {
+                match can_rx.recv() {
+                    Ok(hf) => rx_callback(Frame::from_host_frame(hf)),
+                    Err(_) => {}
+                }
             }
         });
 
-        self.dev.start_transfers();
+        self.dev.start_transfers().unwrap();
         Ok(())
     }
 
     /// Stop CAN communication on all channels.
     pub fn stop(&mut self) -> Result<(), Error> {
-        let can_tx = match &self.can_tx {
-            Some(v) => v,
-            None => return Err(Error::NotRunning),
-        };
-
-        // drop the channel to stop the thread
-        drop(can_tx);
-        // mark thread as not running
-        self.can_tx = None;
-
         let mode = Mode {
             mode: CanMode::Reset as u32,
             flags: 0,
@@ -222,16 +200,14 @@ impl Interface {
         // TODO multi-channel
         self.dev.set_mode(0, mode).unwrap();
 
+        self.dev.stop_transfers().unwrap();
+
+        *self.running.write().unwrap() = false;
         Ok(())
     }
 
     /// Set bitrate for specified channel to requested bitrate value in bits per second.
     pub fn set_bitrate(&mut self, channel: u16, bitrate: u32) -> Result<(), Error> {
-        match &self.can_tx {
-            None => {}
-            Some(_) => return Err(Error::Running),
-        };
-
         // TODO get device clock
         let bt = calculate_bit_timing(48000000, bitrate);
         self.dev
@@ -242,11 +218,8 @@ impl Interface {
     }
 
     /// Send a CAN frame using the device
-    pub fn send(&self, f: Frame) -> Result<(), Error> {
-        match &self.can_tx {
-            Some(tx) => tx.send(f).unwrap(),
-            None => return Err(Error::NotRunning),
-        };
+    pub fn send(&mut self, f: Frame) -> Result<(), Error> {
+        self.dev.send(f.to_host_frame()).unwrap();
         Ok(())
     }
 }

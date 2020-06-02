@@ -136,7 +136,7 @@ pub extern "C" fn cantact_stop(ptr: *mut CInterface) -> i32 {
 /// Transmit a frame. Can only be called if the device is running.
 #[no_mangle]
 pub extern "C" fn cantact_transmit(ptr: *mut CInterface, cf: CFrame) -> i32 {
-    let ci = unsafe { &*ptr };
+    let ci = unsafe { &mut *ptr };
     let f = Frame {
         channel: 0, //cf.channel,
         can_id: cf.id,
@@ -147,7 +147,7 @@ pub extern "C" fn cantact_transmit(ptr: *mut CInterface, cf: CFrame) -> i32 {
         loopback: false,
         rtr: cf.rtr > 0,
     };
-    match &ci.i {
+    match &mut ci.i {
         Some(i) => i.send(f).expect("failed to transmit frame"),
         None => return -1,
     };

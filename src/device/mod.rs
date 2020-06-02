@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crossbeam_channel::{unbounded, Receiver, Sender, TryRecvError};
 use libc::c_void;
 use libusb1_sys::constants::*;
@@ -24,7 +25,11 @@ const BULK_IN_BUF_SIZE: usize = 32;
 const BULK_IN_TIMEOUT_MS: u32 = 5000;
 
 #[derive(Debug)]
-pub(crate) struct Error {}
+pub(crate) enum Error {
+    LibusbError(i32),
+    DeviceNotFound,
+    TransferAllocFailed,
+}
 
 #[derive(Debug)]
 pub(crate) struct UsbContext {
@@ -64,6 +69,7 @@ pub(crate) struct Device {
 
     out_transfer: ptr::NonNull<libusb_transfer>,
     out_buf: Vec<u8>,
+    out_transfer_pending: RwLock<bool>,
 
     in_transfers: [*mut libusb_transfer; BULK_IN_TRANSFER_COUNT],
     in_bufs: [[u8; BULK_IN_BUF_SIZE]; BULK_IN_TRANSFER_COUNT],
@@ -73,16 +79,19 @@ pub(crate) struct Device {
 }
 
 extern "system" fn ctrl_cb(xfer: *mut libusb_transfer) {
-    let dev_ptr = unsafe { (*xfer).user_data };
-    let dev = unsafe { &mut *(dev_ptr as *mut Device) };
+    let dev_ptr = unsafe { (*xfer).user_data as *mut Device };
+    let dev = unsafe { &mut *dev_ptr };
+
     let _status = unsafe { (*xfer).status };
 
     *dev.ctrl_transfer_pending.write().unwrap() = false;
 }
 extern "system" fn bulk_out_cb(xfer: *mut libusb_transfer) {
-    let dev_ptr = unsafe { (*xfer).user_data };
-    let _dev = unsafe { &mut *(dev_ptr as *mut Device) };
+    let dev_ptr = unsafe { (*xfer).user_data as *mut Device };
+    let dev = unsafe { &mut *dev_ptr };
     let _status = unsafe { (*xfer).status };
+
+    *dev.out_transfer_pending.write().unwrap() = false;
 }
 
 extern "system" fn bulk_in_cb(xfer: *mut libusb_transfer) {
@@ -104,20 +113,20 @@ extern "system" fn bulk_in_cb(xfer: *mut libusb_transfer) {
 }
 
 impl Device {
-    pub(crate) fn new(ctx: UsbContext) -> Option<Device> {
+    pub(crate) fn new(ctx: UsbContext) -> Result<Device, Error> {
         let hnd = unsafe { libusb_open_device_with_vid_pid(ctx.as_ptr(), USB_VID, USB_PID) };
         if hnd.is_null() {
-            return None;
+            return Err(Error::DeviceNotFound);
         }
 
         match unsafe { libusb_claim_interface(hnd, 0) } {
             0 => {}
-            _ => panic!("failed to claim interface"),
+            e => return Err(Error::LibusbError(e)),
         }
 
         let ctrl_transfer = unsafe { libusb_alloc_transfer(0) };
         if ctrl_transfer.is_null() {
-            panic!("error allocating in_transfer")
+            return Err(Error::TransferAllocFailed);
         }
 
         let in_bufs: [[u8; BULK_IN_BUF_SIZE]; BULK_IN_TRANSFER_COUNT] =
@@ -125,7 +134,7 @@ impl Device {
 
         let (send, recv) = unbounded();
 
-        let mut d = Device {
+        let d = Device {
             ctx: Arc::new(ctx),
             hnd: unsafe { ptr::NonNull::new_unchecked(hnd) },
 
@@ -135,6 +144,7 @@ impl Device {
 
             out_transfer: unsafe { ptr::NonNull::new_unchecked(ctrl_transfer) },
             out_buf: vec![],
+            out_transfer_pending: RwLock::from(false),
 
             in_transfers: [ptr::null_mut(); BULK_IN_TRANSFER_COUNT],
             in_bufs: in_bufs,
@@ -147,21 +157,40 @@ impl Device {
         let ctx = d.ctx.clone();
         thread::spawn(move || loop {
             unsafe {
-                libusb_handle_events_completed(ctx.as_ptr(), ptr::null_mut());
+                libusb_handle_events(ctx.as_ptr());
             }
         });
 
-        Some(d)
+        Ok(d)
     }
 
-    pub(crate) fn start_transfers(&mut self) {
+    pub(crate) fn start_transfers(&mut self) -> Result<(), Error> {
         // create the in transfers, fill the transfers, and submit them
         for i in 0..BULK_IN_TRANSFER_COUNT {
             let xfer = unsafe { libusb_alloc_transfer(0) };
+            if xfer.is_null() {
+                return Err(Error::TransferAllocFailed);
+            }
             self.in_transfers[i] = xfer;
             self.fill_bulk_in_transfer(i);
-            unsafe { libusb_submit_transfer(self.in_transfers[i]) };
+
+            match unsafe { libusb_submit_transfer(self.in_transfers[i]) } {
+                LIBUSB_SUCCESS => {}
+                e => return Err(Error::LibusbError(e)),
+            };
         }
+        Ok(())
+    }
+
+    pub(crate) fn stop_transfers(&self) -> Result<(), Error> {
+        // cancel all bulk in transfers
+        for xfer in self.in_transfers.iter() {
+            match unsafe { libusb_cancel_transfer(*xfer) } {
+                LIBUSB_SUCCESS => {}
+                e => return Err(Error::LibusbError(e)),
+            }
+        }
+        Ok(())
     }
 
     fn fill_control_transfer(
@@ -231,7 +260,10 @@ impl Device {
         let rt = 0b01000001;
         self.fill_control_transfer(rt, req as u8, channel, 0, data);
         *self.ctrl_transfer_pending.write().unwrap() = true;
-        let r = unsafe { libusb_submit_transfer(self.ctrl_transfer.as_ptr()) };
+        match unsafe { libusb_submit_transfer(self.ctrl_transfer.as_ptr()) } {
+            LIBUSB_SUCCESS => {}
+            e => return Err(Error::LibusbError(e)),
+        }
 
         // wait for transfer to complete
         while *self.ctrl_transfer_pending.read().unwrap() {}
@@ -242,7 +274,11 @@ impl Device {
     fn control_in(&mut self, req: UsbBreq, channel: u16, data: &mut [u8]) -> Result<usize, Error> {
         let rt = 0b11000001;
         self.fill_control_transfer(rt, req as u8, channel, 0, data);
-        let r = unsafe { libusb_submit_transfer(self.ctrl_transfer.as_ptr()) };
+        *self.ctrl_transfer_pending.write().unwrap() = true;
+        match unsafe { libusb_submit_transfer(self.ctrl_transfer.as_ptr()) } {
+            LIBUSB_SUCCESS => {}
+            e => return Err(Error::LibusbError(e)),
+        }
 
         // wait for transfer to complete
         while *self.ctrl_transfer_pending.read().unwrap() {}
@@ -252,8 +288,7 @@ impl Device {
 
     pub(crate) fn set_host_format(&mut self, val: u32) -> Result<(), Error> {
         let channel = 0;
-        self.control_out(UsbBreq::HostFormat, channel, &val.to_le_bytes());
-        Ok(())
+        self.control_out(UsbBreq::HostFormat, channel, &val.to_le_bytes())
     }
 
     pub(crate) fn set_bit_timing(&mut self, channel: u16, timing: BitTiming) -> Result<(), Error> {
@@ -299,10 +334,18 @@ impl Device {
     pub(crate) fn send(&mut self, frame: HostFrame) -> Result<(), Error> {
         self.out_buf.clear();
         self.out_buf.append(&mut frame.to_le_bytes());
+
         self.fill_bulk_out_transfer(self.out_transfer.as_ptr());
-        unsafe {
-            libusb_submit_transfer(self.out_transfer.as_ptr());
+        *self.out_transfer_pending.write().unwrap() = true;
+
+        match unsafe { libusb_submit_transfer(self.out_transfer.as_ptr()) } {
+            LIBUSB_SUCCESS => {}
+            e => return Err(Error::LibusbError(e)),
         }
+
+        // wait for transfer to complete
+        while *self.out_transfer_pending.read().unwrap() {}
+
         Ok(())
     }
 
@@ -323,10 +366,8 @@ impl Device {
 
 impl Drop for Device {
     fn drop(&mut self) {
+        self.stop_transfers().unwrap();
         unsafe {
-            for xfer in self.in_transfers.iter() {
-                libusb_cancel_transfer(*xfer);
-            }
             libusb_release_interface(self.hnd.as_ptr(), 0);
             libusb_close(self.hnd.as_ptr());
         }
@@ -374,6 +415,7 @@ mod tests {
     fn test_frame_receive() {
         let usb = UsbContext::new();
         let mut d = Device::new(usb).unwrap();
+        d.start_transfers();
 
         let bt = BitTiming {
             prop_seg: 0,
@@ -394,5 +436,15 @@ mod tests {
         .unwrap();
 
         println!("{:X?}", d.recv());
+
+        d.set_mode(
+            0,
+            Mode {
+                mode: CanMode::Reset as u32,
+                flags: 0,
+            },
+        )
+        .unwrap();
+        d.stop_transfers();
     }
 }
