@@ -31,6 +31,7 @@ pub enum Error {
     LibusbError(i32),
     DeviceNotFound,
     TransferAllocFailed,
+    InvalidControlResponse,
 }
 
 #[derive(Debug)]
@@ -186,6 +187,10 @@ impl Device {
     pub(crate) fn stop_transfers(&self) -> Result<(), Error> {
         // cancel all bulk in transfers
         for xfer in self.in_transfers.iter() {
+            if xfer.is_null() {
+                // ignore null transfers
+                continue;
+            }
             match unsafe { libusb_cancel_transfer(*xfer) } {
                 LIBUSB_SUCCESS => {}
                 e => return Err(Error::LibusbError(e)),
@@ -284,6 +289,10 @@ impl Device {
         // wait for transfer to complete
         while *self.ctrl_transfer_pending.read().unwrap() {}
         let xfer_len = unsafe { (*self.ctrl_transfer.as_ptr()).actual_length } as usize;
+        if xfer_len != len {
+            // we didn't get the full struct we asked for
+            return Err(Error::InvalidControlResponse);
+        }
 
         Ok(self.ctrl_buf[8..8 + xfer_len].to_vec())
     }

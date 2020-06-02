@@ -8,6 +8,10 @@ pub(crate) const GSUSB_RTR_FLAG: u32 = 0x40000000;
 // echo id for non-loopback frames
 pub(crate) const GSUSB_RX_ECHO_ID: u32 = 0xFFFFFFFF;
 
+// device features bit map
+pub(crate) const GSUSB_FEATURE_LISTEN_ONLY: u32 = (1 << 0);
+pub(crate) const GSUSB_FEATURE_LOOP_BACK: u32 = (1 << 1);
+
 #[repr(u8)]
 pub(crate) enum UsbBreq {
     HostFormat = 0,

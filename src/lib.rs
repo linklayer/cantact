@@ -140,6 +140,8 @@ impl Frame {
 pub struct Channel {
     bitrate: u32,
     enabled: bool,
+    loopback: bool,
+    listen_only: bool,
 }
 
 /// Interface for interacting with CANtact devices
@@ -189,6 +191,8 @@ impl Interface {
             channels.push(Channel {
                 bitrate: 0,
                 enabled: true,
+                loopback: false,
+                listen_only: false,
             });
         }
 
@@ -217,9 +221,17 @@ impl Interface {
     ) -> Result<(), Error> {
         // tell the device to go on bus
         for (i, ch) in self.channels.iter().enumerate() {
+            let mut flags = 0;
+            if ch.listen_only {
+                flags = flags | GSUSB_FEATURE_LISTEN_ONLY;
+            }
+            if ch.loopback {
+                flags = flags | GSUSB_FEATURE_LOOP_BACK;
+            }
+
             let mode = Mode {
                 mode: CanMode::Start as u32,
-                flags: 0,
+                flags: flags,
             };
             if ch.enabled {
                 self.dev.set_mode(i as u16, mode).unwrap();
@@ -248,13 +260,16 @@ impl Interface {
 
     /// Stop CAN communication on all channels.
     pub fn stop(&mut self) -> Result<(), Error> {
-        let mode = Mode {
-            mode: CanMode::Reset as u32,
-            flags: 0,
-        };
-
         // TODO multi-channel
-        self.dev.set_mode(0, mode).unwrap();
+        for (i, ch) in self.channels.iter().enumerate() {
+            let mode = Mode {
+                mode: CanMode::Reset as u32,
+                flags: 0,
+            };
+            if ch.enabled {
+                self.dev.set_mode(i as u16, mode).unwrap();
+            }
+        }
 
         self.dev.stop_transfers().unwrap();
 
@@ -277,8 +292,43 @@ impl Interface {
         Ok(())
     }
 
+    /// Enable or disable a channel's listen only mode. When this mode is enabled,
+    /// the device will not transmit any frames, errors, or acknowledgements.
+    pub fn set_listen_only(&mut self, channel: usize, enabled: bool) -> Result<(), Error> {
+        if channel > self.channel_count {
+            return Err(Error::InvalidChannel);
+        }
+        if *self.running.read().unwrap() {
+            return Err(Error::Running);
+        }
+
+        self.channels[channel].listen_only = enabled;
+        Ok(())
+    }
+
+    /// Enable or disable a channel's loopback mode. When this mode is enabled,
+    /// frames sent by the device will be received by the device
+    /// *as if they had been sent by another node on the bus*.
+    ///
+    /// This mode is primarily intended for device testing!
+    pub fn set_loopback(&mut self, channel: usize, enabled: bool) -> Result<(), Error> {
+        if channel > self.channel_count {
+            return Err(Error::InvalidChannel);
+        }
+        if *self.running.read().unwrap() {
+            return Err(Error::Running);
+        }
+
+        self.channels[channel].loopback = enabled;
+        Ok(())
+    }
+
     /// Send a CAN frame using the device
     pub fn send(&mut self, f: Frame) -> Result<(), Error> {
+        if !*self.running.read().unwrap() {
+            return Err(Error::NotRunning);
+        }
+
         self.dev.send(f.to_host_frame()).unwrap();
         Ok(())
     }

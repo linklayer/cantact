@@ -25,8 +25,6 @@ fn main() {
     })
     .expect("failed to start device");
 
-    println!("{:?}", i);
-
     loop {
         thread::sleep(Duration::from_millis(1000));
     }
