@@ -1,0 +1,36 @@
+name: can
+version: "0.1.0"
+author: Eric Evenchick <eric@evenchick.com>
+about:  Command line utilities for CANtact devices
+args:
+subcommands:
+    - cfg:
+        about: Set device configurations
+        args:
+        - channel:
+            help: Comma-seperated list of channel(s) to configure (e.g., 0 or 0,1)
+        - bitrate:
+            help: CAN bitrate in bits/second
+    - dump:
+        about: Receive and display CAN frames
+        args:
+        - filter:
+            short: f
+            help: "CAN filter to apply, formatted as [id]:[mask]\nExample: 0x123:0x7FF will match only ID 0x123"
+        - channel:
+            help: "Comma-seperated list of channel(s) to receive from (e.g., 0 or 0,1)\nDefaults to all channels"
+    - send:
+        about: Send a single CAN frame
+        args:
+        - extended:
+            short: e
+            help: Force extended identifier (only required if id <= 0x7FF)
+        - channel:
+            help: Channel to transmit on
+            required: true
+        - identifier:
+            help: CAN identifier to transmit
+            required: true
+        - data:
+            help: CAN data to transmit
+            required: true

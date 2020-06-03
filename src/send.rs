@@ -1,17 +1,13 @@
+use crate::Error;
 use cantact::{Frame, Interface};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use ctrlc;
+use clap::ArgMatches;
 use std::thread;
 use std::time::Duration;
 
-fn main() {
-    let running = Arc::new(AtomicBool::new(true));
-    let r = running.clone();
+use crate::helpers;
 
-    ctrlc::set_handler(move || {
-        r.store(false, Ordering::SeqCst);
-    }).expect("Error setting Ctrl-C handler");
+pub fn cmd(_matches: &ArgMatches) -> Result<(), Error> {
+    let flag = helpers::initialize_ctrlc();
 
     // initialize the interface
     let mut i = Interface::new().expect("error opening device");
@@ -31,9 +27,10 @@ fn main() {
             println!("{}", count)
         }
         thread::sleep(Duration::from_millis(0));
-        if !running.load(Ordering::SeqCst) {
-            break
+        if helpers::check_ctrlc(&flag) {
+            break;
         }
     }
-    i.stop();
+    i.stop()?;
+    Ok(())
 }

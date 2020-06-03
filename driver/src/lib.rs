@@ -11,6 +11,8 @@ use std::fmt;
 use std::sync::{Arc, RwLock};
 use std::thread;
 
+use serde::{Deserialize, Serialize};
+
 mod device;
 use device::gsusb::*;
 use device::*;
@@ -136,12 +138,16 @@ impl Frame {
 }
 
 /// Configuration for a device's CAN channel.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Channel {
-    bitrate: u32,
-    enabled: bool,
-    loopback: bool,
-    listen_only: bool,
+    /// Bitrate of the channel in bits/second
+    pub bitrate: u32,
+    /// When true, channel should be enabled when device starts
+    pub enabled: bool,
+    /// When true, device is configured in hardware loopback mode
+    pub loopback: bool,
+    /// When true, device will not transmit on the bus.
+    pub listen_only: bool,
 }
 
 /// Interface for interacting with CANtact devices
@@ -284,6 +290,7 @@ impl Interface {
         }
 
         let bt = calculate_bit_timing(self.can_clock, bitrate);
+        println!("bit timing: {:?}", bt);
         self.dev
             .set_bit_timing(channel as u16, bt)
             .expect("failed to set bit timing");
@@ -339,25 +346,14 @@ impl Interface {
     }
 }
 
-fn calculate_bit_timing(device_clk: u32, bitrate: u32) -> BitTiming {
-    // use a fixed divider and sampling point
-    let brp = 6;
-    let sample_point = 0.68;
-
-    let can_clk = device_clk / brp;
-    // number of time quanta in segement 1 and segment 2
-    // subtract 1 for the fixed sync segment
-    let tqs = (can_clk / bitrate) - 1;
-    // split tqs into two segments
-    let seg1 = (tqs as f32 * sample_point).round() as u32;
-    let seg2 = (tqs as f32 * (1.0 - sample_point)).round() as u32;
-
+fn calculate_bit_timing(_device_clk: u32, _bitrate: u32) -> BitTiming {
+    // TODO: bit timing math. currently fixed at 500000
     BitTiming {
         prop_seg: 0,
-        phase_seg1: seg1,
-        phase_seg2: seg2,
+        phase_seg1: 10,
+        phase_seg2: 5,
         sjw: 1,
-        brp: brp,
+        brp: 6,
     }
 }
 

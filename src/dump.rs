@@ -1,7 +1,9 @@
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use ctrlc;
+use crate::Error;
 use cantact::{Frame, Interface};
+use clap::ArgMatches;
+
+use crate::config::Config;
+use crate::helpers;
 
 fn print_frame(f: Frame) {
     let mut s = format!("  ch:{}  {:03X}   [{}]  ", f.channel, f.can_id, f.can_dlc);
@@ -11,20 +13,13 @@ fn print_frame(f: Frame) {
     println!("{}", s)
 }
 
-fn main() {
-    let running = Arc::new(AtomicBool::new(true));
-    let r = running.clone();
-
-    ctrlc::set_handler(move || {
-        r.store(false, Ordering::SeqCst);
-    }).expect("Error setting Ctrl-C handler");
+pub fn cmd(_matches: &ArgMatches) -> Result<(), Error> {
+    let flag = helpers::initialize_ctrlc();
+    let config = Config::read();
 
     // initialize the interface
-    let mut i = Interface::new().expect("error opening device");
-    // configure the CAN channel(s)
-    for ch in 0..i.channels() {
-        i.set_bitrate(ch, 500000).expect("error setting bitrate");
-    }
+    let mut i = Interface::new()?;
+    config.apply_to_interface(&mut i)?;
 
     // start the device
     // provides a closure to be called when a frame is received
@@ -33,7 +28,8 @@ fn main() {
     })
     .expect("failed to start device");
 
+    helpers::wait_for_ctrlc(&flag);
 
-    while running.load(Ordering::SeqCst) {}
     i.stop().expect("failed to stop device");
+    Ok(())
 }

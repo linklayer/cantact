@@ -6,10 +6,10 @@ use libusb1_sys::*;
 use std::mem;
 use std::mem::size_of;
 use std::ptr;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::sync::RwLock;
 use std::thread;
-use std::sync::atomic::{AtomicBool, Ordering};
 
 pub mod gsusb;
 pub(crate) use gsusb::*;
@@ -162,9 +162,11 @@ impl Device {
         // start the libusb event thread
         let ctx = d.ctx.clone();
         let running = d.running.clone();
-        thread::spawn(move || while running.load(Ordering::SeqCst) {
-            unsafe {
-                libusb_handle_events(ctx.as_ptr());
+        thread::spawn(move || {
+            while running.load(Ordering::SeqCst) {
+                unsafe {
+                    libusb_handle_events(ctx.as_ptr());
+                }
             }
         });
 
