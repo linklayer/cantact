@@ -7,7 +7,7 @@ build = "build.rs"
 
 [lib]
 name = "cantact"
-crate-type = ["dylib", "rlib"]
+crate-type = ["cdylib", "rlib"]
 
 [features]
 python = ["cpython"]
