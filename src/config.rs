@@ -1,15 +1,15 @@
 use crate::Error;
 use cantact::{Channel, Interface};
-use dirs;
+use app_dirs::*;
 use serde::{Deserialize, Serialize};
-use std::fs::read_to_string;
+use std::fs;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 
-// TODO platform dependance
-static CFG_FILE: &'static str = ".config/cantact.toml";
+const APP_INFO: AppInfo = AppInfo{name: "cantact", author: "Linklayer"};
+const CFG_FILE: &'static str = "cantact.toml";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
@@ -20,12 +20,12 @@ pub struct Config {
 impl Config {
     // since config files are not manadatory, this should never fail
     pub fn read() -> Config {
-        let home = match dirs::home_dir() {
-            Some(h) => h,
-            None => return Config { channels: vec![] },
+        let dir = match get_app_root(AppDataType::UserConfig, &APP_INFO) {
+            Ok(d) => d,
+            Err(_) => return Config { channels: vec![] },
         };
-        let filename = Path::new("").join(home).join(CFG_FILE);
-        let s = match read_to_string(filename) {
+        let filename = Path::new("").join(dir).join(CFG_FILE);
+        let s = match fs::read_to_string(filename) {
             Ok(s) => s,
             Err(_) => return Config { channels: vec![] },
         };
@@ -33,8 +33,12 @@ impl Config {
     }
 
     pub fn write(&self) -> io::Result<()> {
-        let home = dirs::home_dir().expect("could not determine home directory");
-        let filename = Path::new("").join(home).join(CFG_FILE);
+        let dir = match get_app_root(AppDataType::UserConfig, &APP_INFO) {
+            Ok(d) => d,
+            Err(_) => panic!("could not determine configuraton directory for this platform"),
+        };
+        fs::create_dir_all(&dir)?;
+        let filename = Path::new("").join(dir).join(CFG_FILE);
         let mut file = File::create(filename)?;
         file.write_all(toml::to_string(&self).unwrap().as_bytes())
     }
