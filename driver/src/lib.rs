@@ -147,7 +147,7 @@ pub struct Channel {
     /// When true, device is configured in hardware loopback mode
     pub loopback: bool,
     /// When true, device will not transmit on the bus.
-    pub listen_only: bool,
+    pub monitor: bool,
 }
 
 /// Interface for interacting with CANtact devices
@@ -198,7 +198,7 @@ impl Interface {
                 bitrate: 0,
                 enabled: true,
                 loopback: false,
-                listen_only: false,
+                monitor: false,
             });
         }
 
@@ -228,7 +228,7 @@ impl Interface {
         // tell the device to go on bus
         for (i, ch) in self.channels.iter().enumerate() {
             let mut flags = 0;
-            if ch.listen_only {
+            if ch.monitor {
                 flags = flags | GSUSB_FEATURE_LISTEN_ONLY;
             }
             if ch.loopback {
@@ -301,7 +301,7 @@ impl Interface {
 
     /// Enable or disable a channel's listen only mode. When this mode is enabled,
     /// the device will not transmit any frames, errors, or acknowledgements.
-    pub fn set_listen_only(&mut self, channel: usize, enabled: bool) -> Result<(), Error> {
+    pub fn set_monitor(&mut self, channel: usize, enabled: bool) -> Result<(), Error> {
         if channel > self.channel_count {
             return Err(Error::InvalidChannel);
         }
@@ -309,7 +309,21 @@ impl Interface {
             return Err(Error::Running);
         }
 
-        self.channels[channel].listen_only = enabled;
+        self.channels[channel].monitor = enabled;
+        Ok(())
+    }
+
+    /// Enable or disable a channel's listen only mode. When this mode is enabled,
+    /// the device will not transmit any frames, errors, or acknowledgements.
+    pub fn set_enabled(&mut self, channel: usize, enabled: bool) -> Result<(), Error> {
+        if channel > self.channel_count {
+            return Err(Error::InvalidChannel);
+        }
+        if *self.running.read().unwrap() {
+            return Err(Error::Running);
+        }
+
+        self.channels[channel].enabled = enabled;
         Ok(())
     }
 

@@ -3,28 +3,52 @@ use cantact::Channel;
 use clap::ArgMatches;
 
 use crate::config::Config;
+use crate::helpers;
 
-pub fn cmd(_matches: &ArgMatches) -> Result<(), Error> {
-    let _config = Config::read();
+pub fn cmd(matches: &ArgMatches) -> Result<(), Error> {
+    let mut config = Config::read();
 
-    let c1 = Channel {
-        bitrate: 500000,
-        loopback: false,
-        listen_only: false,
-        enabled: true,
-    };
-    let c2 = Channel {
-        bitrate: 500000,
-        loopback: false,
-        listen_only: false,
-        enabled: true,
+    let ch = match helpers::parse_channel(matches)? {
+        None => {
+            // if no channel is provided, print the current configuration
+            print!("{}", config);
+            return Ok(());
+        }
+        Some(ch) => ch,
     };
 
-    let config = Config {
-        channels: vec![c1, c2],
-    };
+    if matches.is_present("disable") {
+        config.channels[ch].enabled = false;
+    } else {
+        config.channels[ch].enabled = true;
+    }
+
+    if matches.is_present("loopback") {
+        config.channels[ch].loopback = true;
+    } else {
+        config.channels[ch].loopback = false;
+    }
+
+    if matches.is_present("monitor") {
+        config.channels[ch].monitor = true;
+    } else {
+        config.channels[ch].monitor = false;
+    }
+
+    if matches.is_present("bitrate") {
+        let bitrate = match matches.value_of("bitrate").unwrap().parse::<u32>() {
+            Err(_) => {
+                return Err(Error::InvalidArgument(String::from(
+                    "invalid bitrate value",
+                )))
+            }
+            Ok(b) => b,
+        };
+        config.channels[ch].bitrate = bitrate;
+    }
 
     config.write().unwrap();
 
+    print!("{}", config);
     Ok(())
 }

@@ -3,26 +3,53 @@ version: "0.1.0"
 author: Eric Evenchick <eric@evenchick.com>
 about:  Command line utilities for CANtact devices
 args:
+    - verbose:
+        long: verbose
+        short: v
+        help: Print verbose debugging information
 subcommands:
     - cfg:
         about: Set device configurations
         args:
         - channel:
-            help: Comma-seperated list of channel(s) to configure (e.g., 0 or 0,1)
+            short: c
+            long: channel
+            help: Channel to configure 
+            takes_value: true
         - bitrate:
-            help: CAN bitrate in bits/second
+            short: b
+            long: bitrate
+            help: Channel bitrate in bits/second
+            takes_value: true
+        - disable:
+            short: d
+            long: disable
+            help: Disable this channel
+        - monitor:
+            short: m
+            long: monitor
+            help: Enable monitor (listen only) mode
+        - loopback:
+            short: l
+            long: loopback
+            help: Enable hardware loopback mode
     - dump:
         about: Receive and display CAN frames
         args:
+        - channel:
+            short: c
+            long: channel
+            help: Channel(s) to listen on
+            takes_value: true
         - filter:
             short: f
             help: "CAN filter to apply, formatted as [id]:[mask]\nExample: 0x123:0x7FF will match only ID 0x123"
-        - channel:
-            help: "Comma-seperated list of channel(s) to receive from (e.g., 0 or 0,1)\nDefaults to all channels"
+            takes_value: true
     - send:
         about: Send a single CAN frame
         args:
         - extended:
+            long: extended
             short: e
             help: Force extended identifier (only required if id <= 0x7FF)
         - channel:
