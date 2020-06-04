@@ -1,5 +1,4 @@
 use crate::Error;
-use cantact::Channel;
 use clap::ArgMatches;
 
 use crate::config::Config;
