@@ -185,7 +185,12 @@ impl Device {
 
             match unsafe { libusb_submit_transfer(self.in_transfers[i]) } {
                 LIBUSB_SUCCESS => {}
-                e => return Err(Error::LibusbError("start_transfers: libusb_submit_transfer", e)),
+                e => {
+                    return Err(Error::LibusbError(
+                        "start_transfers: libusb_submit_transfer",
+                        e,
+                    ))
+                }
             };
         }
         Ok(())
