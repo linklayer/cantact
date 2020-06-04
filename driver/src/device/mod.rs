@@ -29,7 +29,7 @@ const BULK_IN_TIMEOUT_MS: u32 = 5000;
 
 #[derive(Debug)]
 pub enum Error {
-    LibusbError(i32),
+    LibusbError(&'static str, i32),
     DeviceNotFound,
     TransferAllocFailed,
     InvalidControlResponse,
@@ -126,7 +126,7 @@ impl Device {
 
         match unsafe { libusb_claim_interface(hnd, 0) } {
             LIBUSB_SUCCESS => {}
-            e => return Err(Error::LibusbError(e)),
+            e => return Err(Error::LibusbError("libusb_claim_interface", e)),
         }
 
         let ctrl_transfer = unsafe { libusb_alloc_transfer(0) };
@@ -185,7 +185,7 @@ impl Device {
 
             match unsafe { libusb_submit_transfer(self.in_transfers[i]) } {
                 LIBUSB_SUCCESS => {}
-                e => return Err(Error::LibusbError(e)),
+                e => return Err(Error::LibusbError("start_transfers: libusb_submit_transfer", e)),
             };
         }
         Ok(())
@@ -201,7 +201,7 @@ impl Device {
             match unsafe { libusb_cancel_transfer(*xfer) } {
                 LIBUSB_SUCCESS => {}
                 LIBUSB_ERROR_NOT_FOUND => { /* already destroyed */ }
-                e => return Err(Error::LibusbError(e)),
+                e => return Err(Error::LibusbError("libusb_cancel_transfer", e)),
             }
         }
         Ok(())
@@ -233,7 +233,7 @@ impl Device {
         }
 
         transfer.dev_handle = self.hnd.as_ptr();
-        transfer.endpoint = request_type & 0x80; // control EP (0 for out, 0x80 for in)
+        transfer.endpoint = 0;
         transfer.transfer_type = LIBUSB_TRANSFER_TYPE_CONTROL;
         transfer.timeout = 1000;
         transfer.buffer = self.ctrl_buf.as_mut_ptr();
@@ -276,7 +276,7 @@ impl Device {
         *self.ctrl_transfer_pending.write().unwrap() = true;
         match unsafe { libusb_submit_transfer(self.ctrl_transfer.as_ptr()) } {
             LIBUSB_SUCCESS => {}
-            e => return Err(Error::LibusbError(e)),
+            e => return Err(Error::LibusbError("control_out: libusb_submit_transfer", e)),
         }
 
         // wait for transfer to complete
@@ -291,7 +291,7 @@ impl Device {
         *self.ctrl_transfer_pending.write().unwrap() = true;
         match unsafe { libusb_submit_transfer(self.ctrl_transfer.as_ptr()) } {
             LIBUSB_SUCCESS => {}
-            e => return Err(Error::LibusbError(e)),
+            e => return Err(Error::LibusbError("control_in: libusb_submit_transfer", e)),
         }
 
         // wait for transfer to complete
@@ -361,7 +361,7 @@ impl Device {
 
         match unsafe { libusb_submit_transfer(self.out_transfer.as_ptr()) } {
             LIBUSB_SUCCESS => {}
-            e => return Err(Error::LibusbError(e)),
+            e => return Err(Error::LibusbError("send: libusb_submit_transfer", e)),
         }
 
         // wait for transfer to complete

@@ -13,6 +13,7 @@ pub(crate) const GSUSB_FEATURE_LISTEN_ONLY: u32 = 1 << 0;
 pub(crate) const GSUSB_FEATURE_LOOP_BACK: u32 = 1 << 1;
 
 #[repr(u8)]
+#[derive(Debug)]
 pub(crate) enum UsbBreq {
     HostFormat = 0,
     BitTiming,
