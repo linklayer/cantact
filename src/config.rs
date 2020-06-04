@@ -78,8 +78,8 @@ impl Config {
             println!("{}, {:?}", n, ch);
             i.set_bitrate(n, ch.bitrate)?;
             i.set_enabled(n, ch.enabled)?;
-            i.set_loopback(n, ch.enabled)?;
-            i.set_monitor(n, ch.enabled)?;
+            i.set_loopback(n, ch.loopback)?;
+            i.set_monitor(n, ch.monitor)?;
         }
         Ok(())
     }
