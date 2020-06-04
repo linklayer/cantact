@@ -75,7 +75,6 @@ impl Config {
 
     pub fn apply_to_interface(&self, i: &mut Interface) -> Result<(), Error> {
         for (n, ch) in self.channels.iter().enumerate() {
-            println!("{}, {:?}", n, ch);
             i.set_bitrate(n, ch.bitrate)?;
             i.set_enabled(n, ch.enabled)?;
             i.set_loopback(n, ch.loopback)?;
