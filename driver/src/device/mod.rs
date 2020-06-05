@@ -127,6 +127,7 @@ impl Device {
         match unsafe { libusb_detach_kernel_driver(hnd, 0) } {
             LIBUSB_SUCCESS => {}
             LIBUSB_ERROR_NOT_FOUND => { /* device already disconnected */ }
+            LIBUSB_ERROR_NOT_SUPPORTED => { /* can't detach on this system (not linux) */ }
             e => return Err(Error::LibusbError("libusb_detach_kernel_driver", e)),
         }
 
@@ -308,7 +309,7 @@ impl Device {
         // wait for transfer to complete
         while *self.ctrl_transfer_pending.read().unwrap() {}
         let xfer_len = unsafe { (*self.ctrl_transfer.as_ptr()).actual_length } as usize;
-        if xfer_len != len {
+        if xfer_len < len {
             // we didn't get the full struct we asked for
             return Err(Error::InvalidControlResponse);
         }
