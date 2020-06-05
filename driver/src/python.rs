@@ -94,7 +94,9 @@ impl PyInterface {
 
     fn send(&mut self, channel: u8, id: u32, ext: bool, rtr: bool, dlc: u8, data: Vec<u8>) -> PyResult<()> {
         let mut data_array = [0u8; 8];
-        data_array.copy_from_slice(data.as_slice());
+        for i in 0..dlc as usize {
+            data_array[i] = data[i];
+        }
         self.i.send(Frame{
             can_id: id,
             can_dlc: dlc,

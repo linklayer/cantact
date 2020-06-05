@@ -4,9 +4,10 @@
 """
 Python CANtact dump example.
 
-A simple example of dumping frames from the bus via the cantact API.
+A simple example of dumping frames to stdout using the cantact module.
+
 Note, most users will want to use the python-can package instead 
-of direct access!
+of direct access! See send_one.py for an example.
 """
 
 import cantact

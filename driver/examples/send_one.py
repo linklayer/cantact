@@ -25,7 +25,5 @@ def send_one():
     except can.CanError:
         print("Message NOT sent")
 
-    bus.shutdown()
-
 if __name__ == '__main__':
     send_one()
