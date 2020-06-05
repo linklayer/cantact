@@ -44,7 +44,7 @@ impl Config {
         }
     }
 
-    // since config files are not manadatory, this should never fail
+    // since config files are not mandatory, this should never fail
     pub fn read() -> Config {
         let dir = match get_app_root(AppDataType::UserConfig, &APP_INFO) {
             Ok(d) => d,
@@ -75,6 +75,10 @@ impl Config {
 
     pub fn apply_to_interface(&self, i: &mut Interface) -> Result<(), Error> {
         for (n, ch) in self.channels.iter().enumerate() {
+            if n > i.channels() {
+                // device doesn't have as many channels as config, ignore the rest
+                break
+            }
             i.set_bitrate(n, ch.bitrate)?;
             i.set_enabled(n, ch.enabled)?;
             i.set_loopback(n, ch.loopback)?;

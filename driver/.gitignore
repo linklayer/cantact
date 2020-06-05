@@ -6,3 +6,4 @@ target
 dist/
 build/
 __pycache__/
+*.egg-link

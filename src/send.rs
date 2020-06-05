@@ -26,7 +26,7 @@ pub fn cmd(_matches: &ArgMatches) -> Result<(), Error> {
         if count % 1000 == 0 {
             println!("{}", count)
         }
-        thread::sleep(Duration::from_millis(0));
+        thread::sleep(Duration::from_millis(10));
         if helpers::check_ctrlc(&flag) {
             break;
         }

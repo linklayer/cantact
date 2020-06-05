@@ -119,44 +119,6 @@ extern "system" fn bulk_in_cb(xfer: *mut libusb_transfer) {
 
 impl Device {
     pub(crate) fn new(ctx: UsbContext) -> Result<Device, Error> {
-        /*
-        let mut list = mem::MaybeUninit::<*const *mut libusb_device>::uninit();
-
-        let n = match unsafe { libusb_get_device_list(ctx.as_ptr(), list.as_mut_ptr()) } {
-            n if n > 0 => n,
-            e => return Err(Error::LibusbError("libusb_get_device_list", e as i32)),
-        };
-        let devices = unsafe { std::slice::from_raw_parts(list.assume_init(), n as usize) };
-
-        // filter for our device by VID/PID
-        let mut device = ptr::null_mut();
-        for d in devices {
-            let mut desc_ptr = mem::MaybeUninit::<libusb_device_descriptor>::uninit();
-            match unsafe { libusb_get_device_descriptor(*d, desc_ptr.as_mut_ptr()) } {
-                LIBUSB_SUCCESS => {},
-                e => return Err(Error::LibusbError("libusb_get_device_descriptor", e))
-            };
-            let desc = unsafe { desc_ptr.assume_init() };
-            println!("VID: {:X}, PID: {:X}", desc.idVendor, desc.idProduct);
-            if desc.idVendor == USB_VID && desc.idProduct == USB_PID {
-                device = *d;
-                break
-            }
-        };
-
-        if device.is_null() {
-            return Err(Error::DeviceNotFound);
-        }
-
-        println!("found it {:?}", device);
-        let mut hnd_ptr = mem::MaybeUninit::<*mut libusb_device_handle>::uninit();
-        match unsafe { libusb_open(device, hnd_ptr.as_mut_ptr()) } {
-            LIBUSB_SUCCESS => {},
-            e => return Err(Error::LibusbError("libusb_open", e))
-        }
-        let hnd = unsafe {hnd_ptr.assume_init()};
-        */
-
         let hnd = unsafe { libusb_open_device_with_vid_pid(ctx.as_ptr(), USB_VID, USB_PID) };
         if hnd.is_null() {
             return Err(Error::DeviceNotFound);
