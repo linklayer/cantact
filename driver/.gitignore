@@ -1,1 +1,8 @@
 target
+
+# python build artifacts
+*.so
+*.egg-info/
+dist/
+build/
+__pycache__/

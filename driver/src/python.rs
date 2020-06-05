@@ -1,68 +1,116 @@
-use crate::Frame;
-use crate::Interface as RustInterface;
-use cpython::*;
+use crate::{Interface, Frame};
+use pyo3::prelude::*;
+use pyo3::exceptions;
+use pyo3::types::PyDict;
+use crate::Error;
+use crossbeam_channel::{unbounded, Sender, Receiver, RecvTimeoutError};
 
-impl ToPyObject for Frame {
-    type ObjectType = PyDict;
-    fn to_py_object(&self, py: Python) -> Self::ObjectType {
-        let dict = PyDict::new(py);
-        dict.set_item(py, "id", self.can_id).unwrap();
-        dict.set_item(py, "dlc", self.can_dlc).unwrap();
-        dict.set_item(py, "channel", self.channel).unwrap();
-        dict.set_item(py, "data", PyBytes::new(py, &self.data))
-            .unwrap();
-        dict
+
+#[pyclass(name = Interface)]
+struct PyInterface {
+    i: Interface,
+    rx_recv: Receiver<Frame>,
+    rx_send: Sender<Frame>
+}
+impl IntoPy<PyObject> for Frame {
+    fn into_py(self, py: Python) -> PyObject {
+        let d = PyDict::new(py);
+        d.set_item("id", self.can_id).unwrap(); 
+        d.set_item("dlc", self.can_dlc).unwrap(); 
+        d.set_item("data", self.data.to_vec()).unwrap(); 
+        d.set_item("extended", self.ext).unwrap(); 
+        d.set_item("rtr", self.rtr).unwrap(); 
+        d.set_item("channel", self.channel).unwrap(); 
+        d.to_object(py)
     }
 }
-/* TODO
-impl FromPyObject for Frame {
-    fn extract(py: Python, obj: &PyObject) -> PyResult<Self> {
-        Frame{}
+
+impl std::convert::From<Error> for PyErr {
+    fn from(err: Error) -> PyErr {
+        PyErr::new::<exceptions::SystemError, _>(format!("{:?}", err))
     }
 }
-*/
 
-py_class!(class Interface |py| {
-    data i: RustInterface;
-    def __new__(_cls) -> PyResult<Interface> {
-        let i = RustInterface::new();
-        Interface::create_instance(py, i)
+#[pymethods]
+impl PyInterface {
+    #[new]
+    fn new() -> PyResult<Self> {
+        let mut i = Interface::new()?;
+
+        // disable all channels by default
+        for n in 0..i.channels.len() {
+            i.set_enabled(n, false)?;
+        }
+
+        let (send, recv) = unbounded();
+        Ok(PyInterface { 
+            i: i, 
+            rx_recv: recv,
+            rx_send: send,
+        })
     }
 
-    def start(&self, channel: u16) -> PyResult<bool> {
-        self.i(py).start(channel);
-        Ok(true)
+    fn set_bitrate(&mut self, channel: usize, bitrate: u32) -> PyResult<()> {
+        self.i.set_bitrate(channel, bitrate)?;
+        Ok(())
     }
 
-    def stop(&self, channel: u16) -> PyResult<bool> {
-        self.i(py).stop(channel);
-        Ok(true)
+    fn set_enabled(&mut self, channel: usize, enabled: bool) -> PyResult<()> {
+        self.i.set_enabled(channel, enabled)?;
+        Ok(())
     }
 
-    def set_bitrate(&self, channel: u16, bitrate: u32) -> PyResult<bool> {
-        self.i(py).set_bitrate(channel, bitrate);
-        Ok(true)
+    fn set_monitor(&mut self, channel: usize, enabled: bool) -> PyResult<()> {
+        self.i.set_monitor(channel, enabled)?;
+        Ok(())
     }
 
-    def recv(&self) -> PyResult<Frame> {
-        let f = self.i(py).recv().unwrap();
-        Ok(f)
-    }
-/* TODO
-    def send(&self, f: Frame) -> PyResult<Frame> {
-        let f = self.i(py).send(f).unwrap();
-        Ok(f)
-    }
-*/
-});
+    fn start(&mut self) -> PyResult<()> {
+        let rx = self.rx_send.clone();
 
-py_module_initializer!(cantact, initcantact, PyInit_cantact, |py, m| {
-    m.add(
-        py,
-        "__doc__",
-        "A Python wrapper for the CANtact USB library",
-    )
-    .unwrap();
-    m.add_class::<Interface>(py)?;
+        self.i.start(move |f: Frame| {
+            match rx.send(f) {
+                Ok(_) => {}
+                Err(_) => {/*TODO*/}
+            };
+        })?;
+
+        Ok(())
+    }
+    
+    fn stop(&mut self) -> PyResult<()> {
+        self.i.stop()?;
+        Ok(())
+    }
+
+    fn recv(&self, timeout_ms: u64) -> PyResult<Option<Frame>> {
+        let f = match self.rx_recv.recv_timeout(std::time::Duration::from_millis(timeout_ms)) {
+            Ok(f) => f,
+            Err(RecvTimeoutError::Timeout) => return Ok(None),
+            Err(RecvTimeoutError::Disconnected) => panic!("device thread died"),
+        };
+        Ok(Some(f))
+    }
+
+    fn send(&mut self, channel: u8, id: u32, ext: bool, rtr: bool, dlc: u8, data: Vec<u8>) -> PyResult<()> {
+        let mut data_array = [0u8; 8];
+        data_array.copy_from_slice(data.as_slice());
+        self.i.send(Frame{
+            can_id: id,
+            can_dlc: dlc,
+            ext: ext,
+            rtr: rtr,
+            data: data_array,
+            channel: channel,
+            loopback: false,
+            fd: false,
+        })?;
+        Ok(())
+    }
+}
+
+#[pymodule]
+fn cantact(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_class::<PyInterface>()?;
     Ok(())
-});
+}
