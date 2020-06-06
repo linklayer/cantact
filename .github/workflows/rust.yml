@@ -1,20 +1,34 @@
 on: [push]
 
-name: Rust Build
+name: Rust
 
 jobs:
   build:
-    name: Linux
+    name: Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Install latest nightly
+      - name: Install Latest Nightly
         uses: actions-rs/toolchain@v1
         with:
             toolchain: nightly
             override: true
-      - name: Run cargo build
+      - name: Run Cargo Build
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release --all-features
+  clippy_check:
+    name: Clippy Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - uses: actions-rs/toolchain@v1
+        with:
+            toolchain: nightly
+            components: clippy
+            override: true
+      - uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
