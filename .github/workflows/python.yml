@@ -4,7 +4,7 @@ on: [push]
 
 jobs:
   build_linux:
-    name: Build
+    name: Linux Build
     runs-on: ubuntu-latest
 
     steps:
@@ -21,7 +21,12 @@ jobs:
     - name: Python Build
       run: |
         cd driver
-        python setup.py build
+        python setup.py build sdist bdist_wheel
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v1
+      with:
+        name: dist
+        path: dist
         
   build_macos:
     name: macOS Build
@@ -40,7 +45,7 @@ jobs:
     - name: Python Build
       run: |
         cd driver
-        python setup.py build
+        python setup.py build sdist bdist_wheel
         
   build_windows:
     name: Windows Build
@@ -59,4 +64,4 @@ jobs:
     - name: Python Build
       run: |
         cd driver
-        python setup.py build
+        python setup.py build || python setup.py build sdist bdist_wheel
