@@ -1,10 +1,10 @@
-name: Python Build
+name: Python
 
 on: [push]
 
 jobs:
-  build:
-    name: Linux
+  build_linux:
+    name: Build
     runs-on: ubuntu-latest
 
     steps:
@@ -13,13 +13,50 @@ jobs:
       uses: actions/setup-python@v1
       with:
         python-version: 3.8
-    - name: Install Rust Nightly
-      run: |
-        curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly -y
-        export PATH="$HOME/.cargo/bin:$PATH"
+    - name: Install Latest Rust Nightly
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        override: true
     - name: Python Build
       run: |
         cd driver
-        rustup override set nightly
         python setup.py build
-
+        
+  build_macos:
+    name: macOS Build
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.8  
+    - name: Install Latest Rust Nightly
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        override: true
+    - name: Python Build
+      run: |
+        cd driver
+        python setup.py build
+        
+  build_windows:
+    name: Windows Build
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.8  
+    - name: Install Latest Rust Nightly
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        override: true
+    - name: Python Build
+      run: |
+        cd driver
+        python setup.py build
