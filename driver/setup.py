@@ -38,10 +38,10 @@ setup(
         "Programming Language :: Rust",
         "Operating System :: POSIX :: Linux"
         "Operating System :: MacOS :: MacOS X",
-        "Operating System :: Microsoft :: Windows"
-        "Topic :: System :: Hardware :: Hardware Drivers"
-        "Topic :: System :: Networking"
-        "Topic :: Software Development :: Embedded Systems"
+        "Operating System :: Microsoft :: Windows",
+        "Topic :: System :: Hardware :: Hardware Drivers",
+        "Topic :: System :: Networking",
+        "Topic :: Software Development :: Embedded Systems",
     ],
     packages=["cantact"],
     rust_extensions=[RustExtension("cantact.cantact", features=["python"])],
