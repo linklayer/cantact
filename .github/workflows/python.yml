@@ -18,14 +18,13 @@ jobs:
         name: dist-${{ env.GITHUB_SHA }}
         path: driver/dist/
     - name: Publish to TestPyPI
-      continue-on-error: true
       env:
         TWINE_USERNAME: ericevenchick
         TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
         TWINE_REPOSITORY: testpypi
       run: |
         pip install twine
-        python -m twine upload driver/dist/*
+        python -m twine upload --skip-existing driver/dist/*
   build_macos:
     name: macOS Build
     runs-on: macos-latest
@@ -50,14 +49,13 @@ jobs:
         name: dist-${{ env.GITHUB_SHA }}
         path: driver/dist
     - name: Publish to TestPyPI
-      continue-on-error: true
       env:
         TWINE_USERNAME: ericevenchick
         TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
         TWINE_REPOSITORY: testpypi
       run: |
         pip install twine
-        python -m twine upload driver/dist/*
+        python -m twine upload --skip-existing driver/dist/*
   build_windows:
     name: Windows Build
     runs-on: windows-latest
@@ -83,11 +81,10 @@ jobs:
         name: dist-${{ env.GITHUB_SHA }}
         path: driver/dist
     - name: Publish to TestPyPI
-      continue-on-error: true
       env:
         TWINE_USERNAME: ericevenchick
         TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
         TWINE_REPOSITORY: testpypi
       run: |
         pip install twine
-        python -m twine upload driver/dist/*
+        python -m twine upload --skip-existing driver/dist/*
