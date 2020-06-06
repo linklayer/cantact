@@ -25,6 +25,14 @@ jobs:
       run: |
         pip install twine
         python -m twine upload --skip-existing driver/dist/*
+    - name: Publish to PyPI
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+      env:
+        TWINE_USERNAME: ericevenchick
+        TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
+      run: |
+        pip install twine
+        python -m twine upload driver/dist/*        
   build_macos:
     name: macOS Build
     runs-on: macos-latest
@@ -59,6 +67,14 @@ jobs:
       run: |
         pip install twine
         python -m twine upload --skip-existing driver/dist/*
+    - name: Publish to PyPI
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+      env:
+        TWINE_USERNAME: ericevenchick
+        TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
+      run: |
+        pip install twine
+        python -m twine upload driver/dist/*
   build_windows:
     name: Windows Build
     runs-on: windows-latest
@@ -94,3 +110,11 @@ jobs:
       run: |
         pip install twine
         python -m twine upload --skip-existing driver/dist/*
+    - name: Publish to PyPI
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+      env:
+        TWINE_USERNAME: ericevenchick
+        TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
+      run: |
+        pip install twine
+        python -m twine upload driver/dist/*  
