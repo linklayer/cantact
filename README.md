@@ -2,9 +2,9 @@
 [![crates.io](https://img.shields.io/crates/v/cantact?label=cantact)](https://crates.io/crates/cantact)
 [![crates.io](https://img.shields.io/crates/v/cantact-driver?label=cantact-driver)](https://crates.io/crates/cantact-driver)
 [![PyPI](https://img.shields.io/pypi/v/cantact)](https://pypi.org/project/cantact/)
-[![docs.rs](https://docs.rs/cantact/badge.svg)](https://docs.rs/cantact/)
-![Rust Build](https://github.com/linklayer/cantact/workflows/Rust%20Build/badge.svg)
-![Python Build](https://github.com/linklayer/cantact/workflows/Python%20Build/badge.svg?branch=actions)
+[![docs.rs](https://docs.rs/cantact-driver/badge.svg)](https://docs.rs/cantact-driver/)
+![Rust Build](https://github.com/linklayer/cantact/workflows/Rust/badge.svg)
+![Python Build](https://github.com/linklayer/cantact/workflows/Python/badge.svg)
 
 Software support for CANtact devices. Includes a driver (see `driver/`), APIs, and a cross-platform command line interface.
 
@@ -65,9 +65,16 @@ can dump
 
 Use `can help [subcommand]` for additional documentation.
 
+## Rust Support
+
+The driver can be used from Rust by installing the [`cantact-driver` crate](https://crates.io/crates/cantact-driver).
+Documentation for the crate can be found on [docs.rs](https://docs.rs/cantact-driver/).
+
 ## Python Support
 
-Python end-users should not use this repository directly. Instead, install Python support using pip:
+CANtact supports Python 3.5+ on Windows, macOS, and Linux. The Python modules are hosted on [PyPI](https://pypi.org/project/cantact/).
+
+Python end-users should not use this repository directly. Instead, install Python support using `pip`:
 
 ```
 python3 -m pip install cantact
@@ -83,7 +90,8 @@ can_logger.py -i cantact -c 0 -b 500000
 
 ### Building Python Support
 
-Building Python support is only required if you want to make modifications to the `cantact` Python module.
+Building Python support is only required if you want to make modifications to the `cantact` Python module, or if
+you are using a platform that does not have packaged support.
 
 Python support is implemented using [PyO3](https://github.com/PyO3/pyo3), and is gated by the `python` feature.
 Thanks to [rust-setuptools](https://github.com/PyO3/setuptools-rust), the `cantact` Python module can be built
@@ -95,5 +103,10 @@ rustup override set nightly
 python setup.py build
 ```
 
-To build [manylinux](https://github.com/pypa/manylinux) compliant wheels, use `manylinux-build.sh`.
-This uses the `manylinux2010` Docker image to build the wheels into `dist/`.
+Python builds for Windows, macOS, and manylinux are automated using [Github Actions](https://github.com/linklayer/cantact/actions?query=workflow%3APython).
+Tagged releases are automatically pushed to PyPI.
+
+## C / C++ Support
+
+C / C++ support is provided by the driver. This is currently used to implement [BUSMASTER](https://rbei-etas.github.io/busmaster/) 
+support on Windows.
