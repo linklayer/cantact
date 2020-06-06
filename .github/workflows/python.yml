@@ -53,7 +53,7 @@ jobs:
       run: |
         pip install -U setuptools wheel setuptools-rust twine
         cd driver
-        python setup.py build sdist bdist_wheel
+        python setup.py build bdist_wheel
     - name: Upload Artifacts
       uses: actions/upload-artifact@v1
       with:
