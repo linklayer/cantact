@@ -6,7 +6,7 @@ from udsoncan.client import Client
 from udsoncan.exceptions import *
 from udsoncan.services import *
 
-udsoncan.setup_logging("logging.conf")
+udsoncan.setup_logging()
 
 bus = can.interface.Bus(bustype='cantact', channel='0', bitrate=500000)
 addr = isotp.Address(addressing_mode=isotp.AddressingMode.Normal_11bits, 
