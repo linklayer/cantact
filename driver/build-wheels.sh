@@ -4,7 +4,7 @@ set -ex
 curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly -y
 export PATH="$HOME/.cargo/bin:$PATH"
 
-cd /io
+cd driver/
 
 for PYBIN in /opt/python/{cp35-cp35m,cp36-cp36m,cp37-cp37m,cp37-cp37m,cp38-cp38}/bin; do
     export PYTHON_SYS_EXECUTABLE="$PYBIN/python"

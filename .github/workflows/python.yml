@@ -74,3 +74,17 @@ jobs:
       with:
         name: dist
         path: driver/dist
+  build_manylinux:
+    name: manylinux Build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run manylinux Builds
+      uses: docker://quay.io/pypa/manylinux2010_x86_64
+      with:
+        entrypoint: driver/build-wheels.sh
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v1
+      with:
+        name: dist
+        path: driver/dist
