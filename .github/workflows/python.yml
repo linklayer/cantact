@@ -18,11 +18,13 @@ jobs:
         name: dist-${GITHUB_SHA}
         path: driver/dist/
     - name: Publish to TestPyPI
-      uses: pypa/gh-action-pypi-publish@master
-      with:
-        password: ${{ secrets.test_pypi_password }}
-        repository_url: https://test.pypi.org/legacy/
-        packages_dir: driver/dist
+      env:
+        TWINE_USERNAME: ericevenchick
+        TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
+        TWINE_REPOSITORY: testpypi
+      run: |
+        pip install twine
+        twine publish driver/dist/*
   build_macos:
     name: macOS Build
     runs-on: macos-latest
@@ -47,11 +49,13 @@ jobs:
         name: dist-${GITHUB_SHA}
         path: driver/dist
     - name: Publish to TestPyPI
-      uses: pypa/gh-action-pypi-publish@master
-      with:
-        password: ${{ secrets.test_pypi_password }}
-        repository_url: https://test.pypi.org/legacy/
-        packages_dir: driver/dist
+      env:
+        TWINE_USERNAME: ericevenchick
+        TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
+        TWINE_REPOSITORY: testpypi
+      run: |
+        pip install twine
+        twine publish driver/dist/*
   build_windows:
     name: Windows Build
     runs-on: windows-latest
@@ -77,8 +81,10 @@ jobs:
         name: dist-${GITHUB_SHA}
         path: driver/dist
     - name: Publish to TestPyPI
-      uses: pypa/gh-action-pypi-publish@master
-      with:
-        password: ${{ secrets.test_pypi_password }}
-        repository_url: https://test.pypi.org/legacy/
-        packages_dir: driver/dist
+      env:
+        TWINE_USERNAME: ericevenchick
+        TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
+        TWINE_REPOSITORY: testpypi
+      run: |
+        pip install twine
+        twine publish driver/dist/*
