@@ -14,9 +14,9 @@ const APP_INFO: AppInfo = AppInfo {
     name: "cantact",
     author: "Linklayer",
 };
-const CFG_FILE: &'static str = "cantact.toml";
+const CFG_FILE: &str = "cantact.toml";
 const DEFAULT_CONFIG: Channel = Channel {
-    bitrate: 500000,
+    bitrate: 500_000,
     loopback: false,
     monitor: false,
     enabled: true,
@@ -29,9 +29,9 @@ pub struct Config {
 }
 impl fmt::Display for Config {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Channels:\n")?;
+        writeln!(f, "Channels:")?;
         for (n, ch) in self.channels.iter().enumerate() {
-            write!(f, "\t{} -> {:?}\n", n, ch)?;
+            writeln!(f, "\t{} -> {:?}", n, ch)?;
         }
         Ok(())
     }
@@ -55,7 +55,7 @@ impl Config {
             Ok(s) => s,
             Err(_) => return Config::default(),
         };
-        let result = toml::from_str(&s).unwrap_or(Config::default());
+        let result = toml::from_str(&s).unwrap_or_else(|_| Config::default());
         info!("read configuration from {:?}", filename);
         result
     }
@@ -63,7 +63,9 @@ impl Config {
     pub fn write(&self) -> io::Result<()> {
         let dir = match get_app_root(AppDataType::UserConfig, &APP_INFO) {
             Ok(d) => d,
-            Err(_) => panic!("could not determine configuration directory for this platform"),
+            Err(AppDirsError::NotSupported) => panic!("platform does not support configuation"),
+            Err(AppDirsError::Io(e)) => panic!("IO error determining configuration location: {:?}", e),
+            Err(AppDirsError::InvalidAppInfo) => panic!("app info struct is invalid"),
         };
         fs::create_dir_all(&dir)?;
         let filename = Path::new("").join(dir).join(CFG_FILE);

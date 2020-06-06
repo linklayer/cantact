@@ -2,14 +2,14 @@
 #![allow(dead_code)]
 
 // can id is OR'd with flag when frame is extended
-pub(crate) const GSUSB_EXT_FLAG: u32 = 0x80000000;
+pub(crate) const GSUSB_EXT_FLAG: u32 = 0x8000_0000;
 // can id is OR'd with flag when frame is RTR
-pub(crate) const GSUSB_RTR_FLAG: u32 = 0x40000000;
+pub(crate) const GSUSB_RTR_FLAG: u32 = 0x4000_0000;
 // echo id for non-loopback frames
-pub(crate) const GSUSB_RX_ECHO_ID: u32 = 0xFFFFFFFF;
+pub(crate) const GSUSB_RX_ECHO_ID: u32 = 0xFFFF_FFFF;
 
 // device features bit map
-pub(crate) const GSUSB_FEATURE_LISTEN_ONLY: u32 = 1 << 0;
+pub(crate) const GSUSB_FEATURE_LISTEN_ONLY: u32 = 1;
 pub(crate) const GSUSB_FEATURE_LOOP_BACK: u32 = 1 << 1;
 
 #[repr(u8)]
@@ -95,7 +95,7 @@ pub(crate) struct BitTimingConsts {
     brp_inc: u32,
 }
 impl BitTimingConsts {
-    pub(crate) fn from_le_bytes(bs: &Vec<u8>) -> BitTimingConsts {
+    pub(crate) fn from_le_bytes(bs: &[u8]) -> BitTimingConsts {
         BitTimingConsts {
             feature: u32_from_le_bytes(&bs[0..4]),
             fclk_can: u32_from_le_bytes(&bs[4..8]),
@@ -122,7 +122,7 @@ pub(crate) struct DeviceConfig {
     pub(crate) hw_version: u32,
 }
 impl DeviceConfig {
-    pub(crate) fn from_le_bytes(bs: &Vec<u8>) -> DeviceConfig {
+    pub(crate) fn from_le_bytes(bs: &[u8]) -> DeviceConfig {
         DeviceConfig {
             reserved1: bs[0],
             reserved2: bs[1],

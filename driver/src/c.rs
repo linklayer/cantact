@@ -1,7 +1,13 @@
 //! Implementation of C/C++ bindings.
 //!
+//! All functions are unsafe since they dereference a context pointer
+//! provided from C.
+//!
 //! TODO: put a simple example here.
 //!
+
+#![allow(clippy::missing_safety_doc)]
+
 use crate::{Frame, Interface};
 
 /// A CAN frame in a C representation
@@ -56,21 +62,19 @@ pub extern "C" fn cantact_init() -> *mut CInterface {
 /// Clean up a CANtact interface.
 /// After calling, the pointer is no longer valid.
 #[no_mangle]
-pub extern "C" fn cantact_deinit(ptr: *mut CInterface) -> i32 {
-    unsafe {
-        Box::from_raw(ptr);
-    };
+pub unsafe extern "C" fn cantact_deinit(ptr: *mut CInterface) -> i32 {
+    Box::from_raw(ptr);
     0
 }
 
 /// Set the receive callback function. This function will be called when a
 /// frame is received.
 #[no_mangle]
-pub extern "C" fn cantact_set_rx_callback(
+pub unsafe extern "C" fn cantact_set_rx_callback(
     ptr: *mut CInterface,
     cb: Option<extern "C" fn(*const CFrame)>,
 ) -> i32 {
-    let mut ci = unsafe { &mut *ptr };
+    let mut ci = &mut *ptr;
     ci.c_rx_cb = cb;
     0
 }
@@ -78,12 +82,12 @@ pub extern "C" fn cantact_set_rx_callback(
 /// Open the device. This must be called before any interaction with the
 /// device (changing settings, starting communication).
 #[no_mangle]
-pub extern "C" fn cantact_open(ptr: *mut CInterface) -> i32 {
+pub unsafe extern "C" fn cantact_open(ptr: *mut CInterface) -> i32 {
     let i = match Interface::new() {
         Ok(i) => i,
         Err(_) => return -1,
     };
-    let ci = unsafe { &mut *ptr };
+    let ci = &mut *ptr;
     ci.i = Some(i);
     0
 }
@@ -91,8 +95,8 @@ pub extern "C" fn cantact_open(ptr: *mut CInterface) -> i32 {
 /// Close the device. After closing, no interaction with the device
 /// can be performed.
 #[no_mangle]
-pub extern "C" fn cantact_close(ptr: *mut CInterface) -> i32 {
-    let mut ci = unsafe { &mut *ptr };
+pub unsafe extern "C" fn cantact_close(ptr: *mut CInterface) -> i32 {
+    let mut ci = &mut *ptr;
     ci.i = None;
     0
 }
@@ -102,10 +106,10 @@ pub extern "C" fn cantact_close(ptr: *mut CInterface) -> i32 {
 /// This function starts a thread which will call the registered callback
 /// when a frame is received.
 #[no_mangle]
-pub extern "C" fn cantact_start(ptr: *mut CInterface) -> i32 {
-    let ci = unsafe { &mut *ptr };
+pub unsafe extern "C" fn cantact_start(ptr: *mut CInterface) -> i32 {
+    let ci = &mut *ptr;
 
-    let cb = ci.c_rx_cb.clone();
+    let cb = ci.c_rx_cb;
     match &mut ci.i {
         Some(i) => i
             .start(move |f: Frame| {
@@ -124,8 +128,8 @@ pub extern "C" fn cantact_start(ptr: *mut CInterface) -> i32 {
 
 /// Stop CAN communication. This will stop all configured CAN channels.
 #[no_mangle]
-pub extern "C" fn cantact_stop(ptr: *mut CInterface) -> i32 {
-    let ci = unsafe { &mut *ptr };
+pub unsafe extern "C" fn cantact_stop(ptr: *mut CInterface) -> i32 {
+    let ci = &mut *ptr;
     match &mut ci.i {
         Some(i) => i.stop().expect("failed to stop device"),
         None => return -1,
@@ -135,8 +139,8 @@ pub extern "C" fn cantact_stop(ptr: *mut CInterface) -> i32 {
 
 /// Transmit a frame. Can only be called if the device is running.
 #[no_mangle]
-pub extern "C" fn cantact_transmit(ptr: *mut CInterface, cf: CFrame) -> i32 {
-    let ci = unsafe { &mut *ptr };
+pub unsafe extern "C" fn cantact_transmit(ptr: *mut CInterface, cf: CFrame) -> i32 {
+    let ci = &mut *ptr;
     let f = Frame {
         channel: 0, //cf.channel,
         can_id: cf.id,
@@ -156,10 +160,10 @@ pub extern "C" fn cantact_transmit(ptr: *mut CInterface, cf: CFrame) -> i32 {
 
 /// TODO
 #[no_mangle]
-pub extern "C" fn cantact_set_bitrate(ptr: *mut CInterface) -> i32 {
-    let ci = unsafe { &mut *ptr };
+pub unsafe extern "C" fn cantact_set_bitrate(ptr: *mut CInterface) -> i32 {
+    let ci = &mut *ptr;
     match &mut ci.i {
-        Some(i) => i.set_bitrate(0, 500000).expect("failed to set bitrate"),
+        Some(i) => i.set_bitrate(0, 500_000).expect("failed to set bitrate"),
         None => return -1,
     }
     0

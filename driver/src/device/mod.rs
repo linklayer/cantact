@@ -160,7 +160,7 @@ impl Device {
             out_transfer_pending: RwLock::from(false),
 
             in_transfers: [ptr::null_mut(); BULK_IN_TRANSFER_COUNT],
-            in_bufs: in_bufs,
+            in_bufs,
 
             can_rx_send: send,
             can_rx_recv: recv,
@@ -240,9 +240,9 @@ impl Device {
         self.ctrl_buf[5] = (index >> 8) as u8;
         self.ctrl_buf[6] = (data.len() & 0xFF) as u8; // wLength
         self.ctrl_buf[7] = (data.len() >> 8) as u8;
-        for i in 0..data.len() {
-            self.ctrl_buf[i + 8] = data[i];
-        }
+
+        // copy control out data
+        self.ctrl_buf[8..(data.len() + 8)].clone_from_slice(&data[..]);
 
         transfer.dev_handle = self.hnd.as_ptr();
         transfer.endpoint = 0;
@@ -283,7 +283,8 @@ impl Device {
     }
 
     fn control_out(&mut self, req: UsbBreq, channel: u16, data: &[u8]) -> Result<(), Error> {
-        let rt = 0b01000001;
+        // bmRequestType: direction = out, type = vendor, recipient = interface
+        let rt = 0b0100_0001;
         self.fill_control_transfer(rt, req as u8, channel, 0, data);
         *self.ctrl_transfer_pending.write().unwrap() = true;
         match unsafe { libusb_submit_transfer(self.ctrl_transfer.as_ptr()) } {
@@ -298,7 +299,8 @@ impl Device {
     }
 
     fn control_in(&mut self, req: UsbBreq, channel: u16, len: usize) -> Result<Vec<u8>, Error> {
-        let rt = 0b11000001;
+        // bmRequestType: direction = in, type = vendor, recipient = interface
+        let rt = 0b1100_0001;
         self.fill_control_transfer(rt, req as u8, channel, 0, &vec![0u8; len].as_slice());
         *self.ctrl_transfer_pending.write().unwrap() = true;
         match unsafe { libusb_submit_transfer(self.ctrl_transfer.as_ptr()) } {

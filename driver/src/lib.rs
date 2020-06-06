@@ -11,6 +11,8 @@ use std::fmt;
 use std::sync::{Arc, RwLock};
 use std::thread;
 
+use crossbeam_channel::RecvError;
+
 use serde::{Deserialize, Serialize};
 
 mod device;
@@ -96,7 +98,7 @@ impl Frame {
             echo_id: 1,
             flags: 0,
             reserved: 0,
-            can_id: can_id,
+            can_id,
             can_dlc: self.can_dlc,
             channel: self.channel,
             data: self.data,
@@ -123,18 +125,18 @@ impl Frame {
         // if set, frame is RTR
         let rtr = (hf.can_id & GSUSB_RTR_FLAG) > 0;
         // remove flags from CAN ID
-        let can_id = hf.can_id & 0x3FFFFFFF;
+        let can_id = hf.can_id & 0x3FFF_FFFF;
         // loopback frame if echo_id is not -1
         let loopback = hf.echo_id != GSUSB_RX_ECHO_ID;
         Frame {
-            can_id: can_id,
+            can_id,
             can_dlc: hf.can_dlc,
             data: hf.data,
             channel: hf.channel,
-            ext: ext,
+            ext,
+            loopback,
+            rtr,
             fd: false, //TODO
-            loopback: loopback,
-            rtr: rtr,
         }
     }
 }
@@ -205,15 +207,15 @@ impl Interface {
         }
 
         let i = Interface {
-            dev: dev,
+            dev,
             running: Arc::new(RwLock::from(false)),
 
+            channel_count,
             can_clock: bt_consts.fclk_can,
-            channel_count: channel_count,
             sw_version: dev_config.sw_version,
             hw_version: dev_config.hw_version,
 
-            channels: channels,
+            channels,
         };
 
         Ok(i)
@@ -231,15 +233,15 @@ impl Interface {
         for (i, ch) in self.channels.iter().enumerate() {
             let mut flags = 0;
             if ch.monitor {
-                flags = flags | GSUSB_FEATURE_LISTEN_ONLY;
+                flags |= GSUSB_FEATURE_LISTEN_ONLY;
             }
             if ch.loopback {
-                flags = flags | GSUSB_FEATURE_LOOP_BACK;
+                flags |= GSUSB_FEATURE_LOOP_BACK;
             }
 
             let mode = Mode {
                 mode: CanMode::Start as u32,
-                flags: flags,
+                flags,
             };
             if ch.enabled {
                 self.dev.set_mode(i as u16, mode).unwrap();
@@ -257,7 +259,10 @@ impl Interface {
             while *running.read().unwrap() {
                 match can_rx.recv() {
                     Ok(hf) => rx_callback(Frame::from_host_frame(hf)),
-                    Err(_) => {}
+                    Err(RecvError) => {
+                        // channel disconnected
+                        break;
+                    }
                 }
             }
         });
@@ -392,7 +397,7 @@ fn calculate_bit_timing(clk: u32, bitrate: u32) -> Result<BitTiming, Error> {
                 }
                 // brp, seg1, and seg2 are all valid
                 return Ok(BitTiming {
-                    brp: brp,
+                    brp,
                     prop_seg: 0,
                     phase_seg1: seg1,
                     phase_seg2: seg2,
@@ -401,12 +406,12 @@ fn calculate_bit_timing(clk: u32, bitrate: u32) -> Result<BitTiming, Error> {
             }
         }
     }
-    return Err(Error::InvalidBitrate(bitrate));
+    Err(Error::InvalidBitrate(bitrate))
 }
 
 #[allow(dead_code)]
 fn effective_bitrate(clk: u32, bt: BitTiming) -> u32 {
-    return clk / bt.brp / (bt.prop_seg + bt.phase_seg1 + bt.phase_seg2 + 1);
+    clk / bt.brp / (bt.prop_seg + bt.phase_seg1 + bt.phase_seg2 + 1)
 }
 
 #[cfg(test)]
