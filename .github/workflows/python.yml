@@ -4,6 +4,7 @@ on: [push]
 
 jobs:
   build:
+    name: Linux
     runs-on: ubuntu-latest
 
     steps:
