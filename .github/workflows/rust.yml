@@ -4,7 +4,7 @@ name: Rust Build
 
 jobs:
   build:
-    name: CANtact Linux
+    name: Linux
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
