@@ -1,4 +1,10 @@
 # CANtact
+[![crates.io](https://img.shields.io/crates/v/cantact?label=cantact)](https://crates.io/crates/cantact)
+[![crates.io](https://img.shields.io/crates/v/cantact-driver?label=cantact-driver)](https://crates.io/crates/cantact-driver)
+[![PyPI](https://img.shields.io/pypi/v/cantact)](https://pypi.org/project/cantact/)
+[![docs.rs](https://docs.rs/cantact/badge.svg)](https://docs.rs/cantact/)
+![Rust Build](https://github.com/linklayer/cantact/workflows/Rust%20Build/badge.svg)
+![Python Build](https://github.com/linklayer/cantact/workflows/Python%20Build/badge.svg?branch=actions)
 
 Software support for CANtact devices. Includes a driver (see `driver/`), APIs, and a cross-platform command line interface.
 

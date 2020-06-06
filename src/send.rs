@@ -12,7 +12,7 @@ pub fn cmd(_matches: &ArgMatches) -> Result<(), Error> {
     // initialize the interface
     let mut i = Interface::new().expect("error opening device");
     // configure the CAN channel
-    i.set_bitrate(0, 500000).expect("error setting bitrate");
+    i.set_bitrate(0, 500_000).expect("error setting bitrate");
     // start the device
     i.start(|_: Frame| {}).expect("failed to start device");
 
@@ -22,7 +22,7 @@ pub fn cmd(_matches: &ArgMatches) -> Result<(), Error> {
     loop {
         f.can_id = count % 0x800;
         i.send(f.clone()).unwrap();
-        count = count + 1;
+        count += 1;
         if count % 1000 == 0 {
             println!("{}", count)
         }

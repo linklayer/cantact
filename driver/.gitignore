@@ -1,4 +1,5 @@
 target
+py-env
 
 # python build artifacts
 *.so
