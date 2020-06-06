@@ -19,5 +19,6 @@ jobs:
     - name: Python Build
       run: |
         cd driver
+        rustup override set nightly
         python setup.py build
 
