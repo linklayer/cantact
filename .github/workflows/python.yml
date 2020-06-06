@@ -24,7 +24,7 @@ jobs:
         TWINE_REPOSITORY: testpypi
       run: |
         pip install twine
-        twine publish driver/dist/*
+        twine upload driver/dist/*
   build_macos:
     name: macOS Build
     runs-on: macos-latest
@@ -55,7 +55,7 @@ jobs:
         TWINE_REPOSITORY: testpypi
       run: |
         pip install twine
-        twine publish driver/dist/*
+        twine upload driver/dist/*
   build_windows:
     name: Windows Build
     runs-on: windows-latest
@@ -87,4 +87,4 @@ jobs:
         TWINE_REPOSITORY: testpypi
       run: |
         pip install twine
-        twine publish driver/dist/*
+        twine upload driver/dist/*
