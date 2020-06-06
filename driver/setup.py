@@ -20,7 +20,7 @@ install_requires = []
 
 setup(
     name="cantact",
-    version="0.1.0.1",
+    version="0.0.1",
     #classifiers=[
     #    "License :: OSI Approved :: MIT License",
     #    "Development Status :: 3 - Alpha",
