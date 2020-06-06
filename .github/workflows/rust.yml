@@ -1,8 +1,6 @@
-name: Rust Check
-
 on: [push]
 
-name: build
+name: Rust Build
 
 jobs:
   check:
