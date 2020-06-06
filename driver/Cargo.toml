@@ -2,6 +2,14 @@
 name = "cantact-driver"
 version = "0.0.1"
 authors = ["Eric Evenchick <eric@evenchick.com>"]
+license-file = "../LICENSE.txt"
+keywords = ["can", "usb", "driver"]
+categories = ["command-line-utilities", "hardware-support"]
+repository = "https://github.com/linklayer/cantact"
+homepage = "http://cantact.io/"
+readme = "../README.md"
+description = "and CLI for CANtact Controller Area Network tools."
+
 edition = "2018"
 build = "build.rs"
 
