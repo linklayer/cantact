@@ -15,7 +15,7 @@ jobs:
     - name: Upload Artifacts
       uses: actions/upload-artifact@v1
       with:
-        name: dist-${GITHUB_SHA}
+        name: dist-$GITHUB_SHA
         path: driver/dist/
     - name: Publish to TestPyPI
       env:
@@ -46,7 +46,7 @@ jobs:
     - name: Upload Artifacts
       uses: actions/upload-artifact@v1
       with:
-        name: dist-${GITHUB_SHA}
+        name: dist-$GITHUB_SHA
         path: driver/dist
     - name: Publish to TestPyPI
       env:
@@ -78,7 +78,7 @@ jobs:
     - name: Upload Artifacts
       uses: actions/upload-artifact@v1
       with:
-        name: dist-${GITHUB_SHA}
+        name: dist-$GITHUB_SHA
         path: driver/dist
     - name: Publish to TestPyPI
       env:
