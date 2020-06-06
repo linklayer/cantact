@@ -1,6 +1,6 @@
 [package]
 name = "cantact"
-version = "0.0.3"
+version = "0.0.4"
 authors = ["Eric Evenchick <eric@evenchick.com>"]
 license = "MIT"
 keywords = ["can", "usb"]
@@ -21,7 +21,7 @@ name = "can"
 path = "src/main.rs"
 
 [dependencies]
-cantact-driver = {path = "driver", version = "0.0.3"}
+cantact-driver = {path = "driver", version = "0.0.4"}
 ctrlc = "3.1.4"
 clap = { version = "3.0.0-beta.1", features = ["yaml"]}
 toml = "0.5.6"
