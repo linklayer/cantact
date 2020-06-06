@@ -1,8 +1,8 @@
 [package]
 name = "cantact-driver"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Eric Evenchick <eric@evenchick.com>"]
-license-file = "../LICENSE.txt"
+license = "MIT"
 keywords = ["can", "usb", "driver"]
 categories = ["command-line-utilities", "hardware-support"]
 repository = "https://github.com/linklayer/cantact"
