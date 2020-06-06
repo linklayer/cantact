@@ -38,7 +38,7 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        python-version: [3.6, 3.7, 3.8]
+        python-version: [3.5, 3.6, 3.7, 3.8]
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
@@ -52,6 +52,7 @@ jobs:
         override: true
     - name: Python Build
       run: |
+        pip install setuptools wheel setuptools-rust
         cd driver
         python setup.py build sdist bdist_wheel
     - name: Upload Artifacts
@@ -80,7 +81,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        python-version: [3.6, 3.7, 3.8]
+        python-version: [3.5, 3.6, 3.7, 3.8]
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
@@ -93,11 +94,10 @@ jobs:
         toolchain: nightly
         override: true
     - name: Python Build
-      # on windows, the first attempt to run setuptools-rust fails, so do it twice.
       run: |
         pip install setuptools wheel setuptools-rust
         cd driver
-        python setup.py build || python setup.py build bdist_wheel
+        python setup.py build bdist_wheel
     - name: Upload Artifacts
       uses: actions/upload-artifact@v1
       with:
