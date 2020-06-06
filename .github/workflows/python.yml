@@ -26,8 +26,7 @@ jobs:
       uses: actions/upload-artifact@v1
       with:
         name: dist
-        path: dist
-        
+        path: driver/dist
   build_macos:
     name: macOS Build
     runs-on: macos-latest
@@ -46,7 +45,11 @@ jobs:
       run: |
         cd driver
         python setup.py build sdist bdist_wheel
-        
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v1
+      with:
+        name: dist
+        path: driver/dist     
   build_windows:
     name: Windows Build
     runs-on: windows-latest
@@ -62,6 +65,12 @@ jobs:
         toolchain: nightly
         override: true
     - name: Python Build
+      # on windows, the first attempt to run setuptools-rust fails, so do it twice.
       run: |
         cd driver
         python setup.py build || python setup.py build sdist bdist_wheel
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v1
+      with:
+        name: dist
+        path: driver/dist
