@@ -3,8 +3,8 @@ on: [push]
 name: Rust Build
 
 jobs:
-  check:
-    name: Rust project
+  build:
+    name: CANtact Linux
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -13,12 +13,8 @@ jobs:
         with:
             toolchain: nightly
             override: true
-            components: rustfmt, clippy
-
-      # `cargo check` command here will use installed `nightly`
-      # as it is set as an "override" for current directory
-
-      - name: Run cargo check
+      - name: Run cargo build
         uses: actions-rs/cargo@v1
         with:
-          command: check
+          command: build
+          args: --release --all-features
