@@ -1,0 +1,23 @@
+name: Build Python
+
+on: [push]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.8
+    - name: Install Rust Nightly
+      run: |
+        curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly -y
+        export PATH="$HOME/.cargo/bin:$PATH"
+    - name: Python Build
+      run: |
+        cd driver
+        python setup.py build
+
