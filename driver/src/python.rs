@@ -119,6 +119,10 @@ impl PyInterface {
         })?;
         Ok(())
     }
+
+    fn channel_count(&self) -> PyResult<usize> {
+        Ok(self.i.channels())
+    }
 }
 
 #[pymodule]

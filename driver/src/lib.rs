@@ -357,7 +357,7 @@ impl Interface {
 
     /// Returns the number of channels this Interface has
     pub fn channels(&self) -> usize {
-        self.channel_count
+        self.channel_count + 1
     }
 }
 
