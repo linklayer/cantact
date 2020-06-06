@@ -415,7 +415,7 @@ mod tests {
     #[test]
     fn test_bit_timing() {
         let clk = 48000000;
-        let bitrates = vec![1000000, 500000, 250000, 125000, 33000];
+        let bitrates = vec![1000000, 500000, 250000, 125000];
         for b in bitrates {
             let bt = calculate_bit_timing(clk, b).unwrap();
 
