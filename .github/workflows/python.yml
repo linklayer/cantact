@@ -15,9 +15,10 @@ jobs:
     - name: Upload Artifacts
       uses: actions/upload-artifact@v1
       with:
-        name: dist-$GITHUB_SHA
+        name: dist-${{ env.GITHUB_SHA }}
         path: driver/dist/
     - name: Publish to TestPyPI
+      continue-on-error: true
       env:
         TWINE_USERNAME: ericevenchick
         TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
@@ -46,9 +47,10 @@ jobs:
     - name: Upload Artifacts
       uses: actions/upload-artifact@v1
       with:
-        name: dist-$GITHUB_SHA
+        name: dist-${{ env.GITHUB_SHA }}
         path: driver/dist
     - name: Publish to TestPyPI
+      continue-on-error: true
       env:
         TWINE_USERNAME: ericevenchick
         TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
@@ -78,9 +80,10 @@ jobs:
     - name: Upload Artifacts
       uses: actions/upload-artifact@v1
       with:
-        name: dist-$GITHUB_SHA
+        name: dist-${{ env.GITHUB_SHA }}
         path: driver/dist
     - name: Publish to TestPyPI
+      continue-on-error: true
       env:
         TWINE_USERNAME: ericevenchick
         TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
