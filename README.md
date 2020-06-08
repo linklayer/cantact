@@ -27,6 +27,21 @@ cd cantact
 cargo install --path .
 ```
 
+### Setting udev Rules (Linux only)
+
+On Linux, only root can access the device by default. This results in a `DeviceNotFound` error when trying to access the device as a normal user. 
+To allow access for all users, create a file at `/etc/udev/rules.d/99-cantact.rules` which contains:
+```
+SUBSYSTEM=="usb", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="606f", MODE="0666"
+```
+
+Then reload the udev rules:
+```
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+```
+
+
 ## Command Line Interface
 
 The CLI is invoked using the `can` binary:
