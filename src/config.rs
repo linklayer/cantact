@@ -64,7 +64,9 @@ impl Config {
         let dir = match get_app_root(AppDataType::UserConfig, &APP_INFO) {
             Ok(d) => d,
             Err(AppDirsError::NotSupported) => panic!("platform does not support configuation"),
-            Err(AppDirsError::Io(e)) => panic!("IO error determining configuration location: {:?}", e),
+            Err(AppDirsError::Io(e)) => {
+                panic!("IO error determining configuration location: {:?}", e)
+            }
             Err(AppDirsError::InvalidAppInfo) => panic!("app info struct is invalid"),
         };
         fs::create_dir_all(&dir)?;
