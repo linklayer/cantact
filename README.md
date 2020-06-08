@@ -73,10 +73,12 @@ Documentation for the crate can be found on [docs.rs](https://docs.rs/cantact-dr
 ## Python Support
 
 CANtact supports Python 3.5+ on Windows, macOS, and Linux. The Python modules are hosted on [PyPI](https://pypi.org/project/cantact/).
+Installation requires `pip 19.0+` (for manylinux2010 wheels).
 
 Python end-users should not use this repository directly. Instead, install Python support using `pip`:
 
 ```
+python3 -m pip -U pip
 python3 -m pip install cantact
 ```
 
@@ -84,7 +86,7 @@ See the `examples/` folder for Python examples. [python-can](https://github.com/
 CANtact, and is recommended over using the `cantact` module directly.
 
 ```
-python3 -m pip install python-can cantact
+python3 -m pip install cantact git+https://github.com/ericevenchick/python-can@cantact
 can_logger.py -i cantact -c 0 -b 500000
 ```
 
