@@ -51,6 +51,8 @@ pub struct CInterface {
 /// Create a new CANtact interface, returning a pointer to the interface.
 /// This pointer must be provided as the first argument to all other calls in
 /// this library.
+/// 
+/// If this function fails, it returns a null pointer (0).
 #[no_mangle]
 pub extern "C" fn cantact_init() -> *mut CInterface {
     Box::into_raw(Box::new(CInterface {
@@ -158,19 +160,49 @@ pub unsafe extern "C" fn cantact_transmit(ptr: *mut CInterface, cf: CFrame) -> i
     0
 }
 
-/// TODO
+/// Sets the bitrate for a chanel to the given value in bits per second.
 #[no_mangle]
-pub unsafe extern "C" fn cantact_set_bitrate(ptr: *mut CInterface) -> i32 {
+pub unsafe extern "C" fn cantact_set_bitrate(ptr: *mut CInterface, channel: u8, bitrate: u32) -> i32 {
     let ci = &mut *ptr;
     match &mut ci.i {
-        Some(i) => i.set_bitrate(0, 500_000).expect("failed to set bitrate"),
+        Some(i) => i.set_bitrate(channel as usize, bitrate).expect("failed to set bitrate"),
         None => return -1,
     }
     0
 }
 
-/// TODO
+/// Enable or disable a channel.
 #[no_mangle]
-pub extern "C" fn cantact_set_bitrate_user(_ptr: *mut CInterface) -> i32 {
+pub unsafe extern "C" fn cantact_set_enabled(ptr: *mut CInterface, channel: u8, enabled: u8) -> i32 {
+    let ci = &mut *ptr;
+    match &mut ci.i {
+        Some(i) => i.set_enabled(channel as usize, enabled > 0).expect("failed to enable channel"),
+        None => return -1,
+    }
     0
 }
+
+/// Enable or disable bus monitoring mode for a channel. When enabled, channel
+/// will not transmit frames or acknoweldgements.
+#[no_mangle]
+ pub unsafe extern "C" fn cantact_set_monitor(ptr: *mut CInterface, channel: u8, enabled: u8) -> i32 {
+    let ci = &mut *ptr;
+    match &mut ci.i {
+        Some(i) => i.set_monitor(channel as usize, enabled > 0).expect("failed to set monitoring mode"),
+        None => return -1,
+    }
+    0
+}
+
+/// Enable or disable hardware loopback for a channel. This will cause sent
+/// frames to be received. This mode is mostly intended for device testing.
+#[no_mangle]
+pub unsafe extern "C" fn cantact_set_hw_loopback(ptr: *mut CInterface, channel: u8, enabled: u8) -> i32 {
+    let ci = &mut *ptr;
+    match &mut ci.i {
+        Some(i) => i.set_loopback(channel as usize, enabled > 0).expect("failed to enable channel"),
+        None => return -1,
+    }
+    0
+}
+
