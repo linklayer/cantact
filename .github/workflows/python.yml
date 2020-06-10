@@ -54,7 +54,7 @@ jobs:
         pip install -U setuptools wheel setuptools-rust twine
         cd driver
         python setup.py build bdist_wheel
-        mv cantact-*-macos*.whl $(echo cantact-*-macos*.whl | sed 's/macosx_.*/macosx_10_15_x86_64.macosx_10_14_x86_64.macosx_10_13_x86_64.macosx_10_12_x86_64.whl/')
+        mv dist/cantact-*-macos*.whl $(echo dist/cantact-*-macos*.whl | sed 's/macosx_.*/macosx_10_15_x86_64.macosx_10_14_x86_64.macosx_10_13_x86_64.macosx_10_12_x86_64.whl/')
     - name: Upload Artifacts
       uses: actions/upload-artifact@v1
       with:
