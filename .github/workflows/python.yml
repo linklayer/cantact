@@ -35,7 +35,7 @@ jobs:
         TWINE_USERNAME: ericevenchick
         TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
       run: |
-        python -m twine upload driver/dist/* 
+        python -m twine upload --skip-existing driver/dist/* 
   build_manylinux:
     name: manylinux Build
     runs-on: ubuntu-latest
@@ -64,7 +64,7 @@ jobs:
         TWINE_USERNAME: ericevenchick
         TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
       run: |
-        python -m twine upload driver/dist/*        
+        python -m twine upload --skip-existing driver/dist/*        
   build_macos:
     name: macOS Build
     runs-on: macos-latest
@@ -106,7 +106,7 @@ jobs:
         TWINE_USERNAME: ericevenchick
         TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
       run: |
-        python -m twine upload driver/dist/*
+        python -m twine upload --skip-existing driver/dist/*
   build_windows:
     name: Windows Build
     runs-on: windows-latest
@@ -147,4 +147,4 @@ jobs:
         TWINE_USERNAME: ericevenchick
         TWINE_PASSWORD: ${{ secrets.pypi_password }}
       run: |
-        python -m twine upload driver/dist/*  
+        python -m twine upload --skip-existing driver/dist/*  
