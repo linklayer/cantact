@@ -3,6 +3,34 @@ name: Python
 on: [push]
 
 jobs:
+  build_sdist:
+    name: sdist Build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.8
+    - name: Python Build
+      run: |
+        pip install -U setuptools wheel setuptools-rust twine
+        cd driver
+        python setup.py build sdist
+    - name: Publish to TestPyPI
+      env:
+        TWINE_USERNAME: ericevenchick
+        TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
+        TWINE_REPOSITORY: testpypi
+      run: |
+        python -m twine upload --skip-existing driver/dist/*
+    - name: Publish to PyPI
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+      env:
+        TWINE_USERNAME: ericevenchick
+        TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
+      run: |
+        python -m twine upload driver/dist/* 
   build_manylinux:
     name: manylinux Build
     runs-on: ubuntu-latest
