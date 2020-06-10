@@ -12,6 +12,11 @@ jobs:
       uses: actions/setup-python@v1
       with:
         python-version: 3.8
+    - name: Install Latest Rust Nightly
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        override: true
     - name: Python Build
       run: |
         pip install -U setuptools wheel setuptools-rust twine
