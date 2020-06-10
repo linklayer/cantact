@@ -82,8 +82,13 @@ python3 -m pip -U pip
 python3 -m pip install cantact
 ```
 
+This will attempt to install a binary distribution for your system. If none exists, it will attempt to build
+from source. This requires nightly rust, which can be enabled by running `rustup default nightly` before 
+installing.
+
 See the `examples/` folder for Python examples. [python-can](https://github.com/hardbyte/python-can/) supports
-CANtact, and is recommended over using the `cantact` module directly.
+CANtact, and is recommended over using the `cantact` module directly. To install CANtact, `python-can`, 
+and run a test:
 
 ```
 python3 -m pip install cantact git+https://github.com/ericevenchick/python-can@cantact
