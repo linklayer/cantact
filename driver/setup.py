@@ -18,12 +18,12 @@ except ImportError:
 setup_requires = ["setuptools-rust>=0.10.1", "wheel"]
 install_requires = []
 
-with open("../README.md", "r") as fh:
+with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(
     name="cantact",
-    version="0.0.5",
+    version="0.0.6",
     author="Eric Evenchick",
     author_email="eric@evenchick.com",
     description="Support for the CANtact Controller Area Network Devices",
@@ -44,10 +44,10 @@ setup(
         "Topic :: Software Development :: Embedded Systems",
     ],
     packages=["cantact"],
-    rust_extensions=[RustExtension("cantact.cantact", features=["python"])],
+    rust_extensions=[RustExtension("cantact.cantact", features=["python"],)],
     install_requires=install_requires,
     setup_requires=setup_requires,
-    python_requires='>=3.5',
+    python_requires=">=3.5",
     include_package_data=True,
     zip_safe=False,
 )

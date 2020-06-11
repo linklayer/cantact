@@ -1,6 +1,6 @@
 [package]
 name = "cantact-driver"
-version = "0.0.5"
+version = "0.0.6"
 authors = ["Eric Evenchick <eric@evenchick.com>"]
 license = "MIT"
 keywords = ["can", "usb", "driver"]
