@@ -20,6 +20,13 @@ impl IntoPy<PyObject> for Frame {
         d.set_item("extended", self.ext).unwrap();
         d.set_item("rtr", self.rtr).unwrap();
         d.set_item("channel", self.channel).unwrap();
+        d.set_item("loopback", self.loopback).unwrap();
+        match self.timestamp {
+            Some(t) => d
+                .set_item("timestamp", t.as_micros() as f32 / 1000000.0)
+                .unwrap(),
+            None => d.set_item("timestamp", 0).unwrap(),
+        };
         d.to_object(py)
     }
 }
@@ -51,6 +58,19 @@ impl PyInterface {
 
     fn set_bitrate(&mut self, channel: usize, bitrate: u32) -> PyResult<()> {
         self.i.set_bitrate(channel, bitrate)?;
+        Ok(())
+    }
+
+    fn set_bit_timing(
+        &mut self,
+        channel: usize,
+        brp: u32,
+        phase_seg1: u32,
+        phase_seg2: u32,
+        sjw: u32,
+    ) -> PyResult<()> {
+        self.i
+            .set_bit_timing(channel, brp, phase_seg1, phase_seg2, sjw)?;
         Ok(())
     }
 
@@ -116,6 +136,7 @@ impl PyInterface {
             channel: channel,
             loopback: false,
             fd: false,
+            timestamp: None,
         })?;
         Ok(())
     }

@@ -10,6 +10,7 @@
 use std::fmt;
 use std::sync::{Arc, RwLock};
 use std::thread;
+use std::time;
 
 use crossbeam_channel::RecvError;
 
@@ -78,6 +79,9 @@ pub struct Frame {
 
     /// Remote Transmission Request (RTR) flag.
     pub rtr: bool,
+
+    /// Timestamp when frame was received
+    pub timestamp: Option<time::Duration>,
 }
 impl Frame {
     // convert to a frame format expected by the device
@@ -115,6 +119,7 @@ impl Frame {
             fd: false,
             loopback: false,
             rtr: false,
+            timestamp: None,
         }
     }
     fn from_host_frame(hf: HostFrame) -> Frame {
@@ -128,6 +133,7 @@ impl Frame {
         let can_id = hf.can_id & 0x3FFF_FFFF;
         // loopback frame if echo_id is not -1
         let loopback = hf.echo_id != GSUSB_RX_ECHO_ID;
+
         Frame {
             can_id,
             can_dlc: hf.can_dlc,
@@ -136,7 +142,8 @@ impl Frame {
             ext,
             loopback,
             rtr,
-            fd: false, //TODO
+            fd: false, // TODO
+            timestamp: None,
         }
     }
 }
@@ -255,10 +262,15 @@ impl Interface {
         // rx callback thread
         let can_rx = self.dev.can_rx_recv.clone();
         let running = Arc::clone(&self.running);
+        let start_time = time::Instant::now();
         thread::spawn(move || {
             while *running.read().unwrap() {
                 match can_rx.recv() {
-                    Ok(hf) => rx_callback(Frame::from_host_frame(hf)),
+                    Ok(hf) => {
+                        let mut f = Frame::from_host_frame(hf);
+                        f.timestamp = Some(time::Instant::now().duration_since(start_time));
+                        rx_callback(f)
+                    }
                     Err(RecvError) => {
                         // channel disconnected
                         break;
@@ -285,7 +297,6 @@ impl Interface {
         }
 
         self.dev.stop_transfers().unwrap();
-
         *self.running.write().unwrap() = false;
         Ok(())
     }
@@ -302,6 +313,28 @@ impl Interface {
             .expect("failed to set bit timing");
 
         self.channels[channel].bitrate = bitrate;
+        Ok(())
+    }
+
+    /// Set a custom bit timing for the specified channel.
+    pub fn set_bit_timing(
+        &mut self,
+        channel: usize,
+        brp: u32,
+        phase_seg1: u32,
+        phase_seg2: u32,
+        sjw: u32,
+    ) -> Result<(), Error> {
+        let bt = BitTiming {
+            brp,
+            prop_seg: 0,
+            phase_seg1,
+            phase_seg2,
+            sjw,
+        };
+        self.dev
+            .set_bit_timing(channel as u16, bt)
+            .expect("failed to set bit timing");
         Ok(())
     }
 
@@ -419,13 +452,15 @@ mod tests {
     use super::*;
     #[test]
     fn test_bit_timing() {
-        let clk = 48000000;
-        let bitrates = vec![1000000, 500000, 250000, 125000];
+        let clk = 24000000;
+        let bitrates = vec![1000000, 500000, 250000, 125000, 33333];
         for b in bitrates {
             let bt = calculate_bit_timing(clk, b).unwrap();
 
             // ensure error < 0.5%
+            println!("{:?}", &bt);
             let err = 100.0 * (1.0 - (effective_bitrate(clk, bt) as f32 / b as f32).abs());
+            println!("{:?}", err);
             assert!(err < 0.5);
         }
     }

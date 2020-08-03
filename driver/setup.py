@@ -23,7 +23,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="cantact",
-    version="0.0.6",
+    version="0.0.7",
     author="Eric Evenchick",
     author_email="eric@evenchick.com",
     description="Support for the CANtact Controller Area Network Devices",

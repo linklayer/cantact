@@ -152,6 +152,7 @@ pub unsafe extern "C" fn cantact_transmit(ptr: *mut CInterface, cf: CFrame) -> i
         fd: cf.fd > 0,
         loopback: false,
         rtr: cf.rtr > 0,
+        timestamp: None,
     };
     match &mut ci.i {
         Some(i) => i.send(f).expect("failed to transmit frame"),
