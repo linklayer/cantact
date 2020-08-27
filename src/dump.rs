@@ -7,7 +7,10 @@ use crate::config::Config;
 use crate::helpers;
 
 fn print_frame(f: Frame) {
-    let mut s = format!("  ch:{}  {:03X}   [{}]  ", f.channel, f.can_id, f.can_dlc);
+    let mut s = format!(
+        "{:?}  ch:{}  {:03X}   [{}]  ",
+        f.timestamp, f.channel, f.can_id, f.can_dlc
+    );
     for b in f.data.iter().take(f.can_dlc as usize) {
         s = format!("{}{:02X} ", s, b);
     }
