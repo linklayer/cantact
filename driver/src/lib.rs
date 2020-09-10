@@ -66,7 +66,7 @@ pub struct Frame {
     pub channel: u8,
 
     /// Frame data contents.
-    pub data: [u8; 8],
+    pub data: Vec<u8>,
 
     /// Extended (29 bit) arbitration identifier if true,
     /// standard (11 bit) arbitration identifer if false.
@@ -75,9 +75,18 @@ pub struct Frame {
     /// CAN Flexible Data (CAN-FD) frame flag.
     pub fd: bool,
 
+    /// CAN-FD Bit Rate Switch (BRS) flag.
+    pub brs: bool,
+
+    /// CAN-FD Error State Indicator (ESI) flag.
+    pub esi: bool,
+
     /// Loopback flag. When true, frame was sent by this device/channel.
     /// False for received frames.
     pub loopback: bool,
+
+    /// Error frame flag.
+    pub err: bool,
 
     /// Remote Transmission Request (RTR) flag.
     pub rtr: bool,
@@ -86,6 +95,11 @@ pub struct Frame {
     pub timestamp: Option<time::Duration>,
 }
 impl Frame {
+    fn data_as_array(&self) -> [u8; 64] {
+        let mut data = [0u8; 64];
+        data[..64].clone_from_slice(&self.data[..64]);
+        data
+    }
     // convert to a frame format expected by the device
     fn to_host_frame(&self) -> HostFrame {
         // if frame is extended, set the extended bit in host frame CAN ID
@@ -94,12 +108,18 @@ impl Frame {
         } else {
             self.can_id
         };
-        // if frame is RTR, set the RTR bit in host frame CAN ID
+        // apply RTR and ERR flags
         can_id = if self.rtr {
             can_id | GSUSB_RTR_FLAG
         } else {
             can_id
         };
+        can_id = if self.err {
+            can_id | GSUSB_ERR_FLAG
+        } else {
+            can_id
+        };
+
         HostFrame {
             echo_id: 1,
             flags: 0,
@@ -107,7 +127,7 @@ impl Frame {
             can_id,
             can_dlc: self.can_dlc,
             channel: self.channel,
-            data: self.data,
+            data: self.data_as_array(),
         }
     }
     /// Returns a default CAN frame with all values set to zero/false.
@@ -115,12 +135,15 @@ impl Frame {
         Frame {
             can_id: 0,
             can_dlc: 0,
-            data: [0u8; 8],
+            data: vec![],
             channel: 0,
             ext: false,
             fd: false,
             loopback: false,
             rtr: false,
+            brs: false,
+            esi: false,
+            err: false,
             timestamp: None,
         }
     }
@@ -128,24 +151,46 @@ impl Frame {
         // check the extended bit of host frame
         // if set, frame is extended
         let ext = (hf.can_id & GSUSB_EXT_FLAG) > 0;
-        // check the RTR bit of host frame
-        // if set, frame is RTR
+        // check the RTR and ERR bits of host frame ID
         let rtr = (hf.can_id & GSUSB_RTR_FLAG) > 0;
+        let err = (hf.can_id & GSUSB_ERR_FLAG) > 0;
         // remove flags from CAN ID
-        let can_id = hf.can_id & 0x3FFF_FFFF;
+        let can_id = hf.can_id & 0x1FFF_FFFF;
         // loopback frame if echo_id is not -1
         let loopback = hf.echo_id != GSUSB_RX_ECHO_ID;
+        // apply FD flags
+        let fd = (hf.flags & GS_CAN_FLAG_FD) > 0;
+        let brs = (hf.flags & GS_CAN_FLAG_BRS) > 0;
+        let esi = (hf.flags & GS_CAN_FLAG_ESI) > 0;
 
         Frame {
             can_id,
             can_dlc: hf.can_dlc,
-            data: hf.data,
+            data: hf.data.to_vec(),
             channel: hf.channel,
             ext,
             loopback,
             rtr,
-            fd: false, // TODO
+            fd,
+            brs,
+            esi,
+            err,
             timestamp: None,
+        }
+    }
+
+    /// Return the length of data in this frame. This is the DLC for non-FD frames.
+    pub fn data_len(&self) -> usize {
+        match self.can_dlc {
+            0..=8 => self.can_dlc as usize,
+            9 => 12,
+            10 => 16,
+            11 => 20,
+            12 => 24,
+            13 => 32,
+            14 => 48,
+            15 => 64,
+            16..=u8::MAX => panic!("invalid DLC value"),
         }
     }
 }
@@ -163,6 +208,8 @@ pub struct Channel {
     pub monitor: bool,
     /// When true, CAN FD is enabled for the device
     pub fd: bool,
+    /// CAN FD data bitrate of the channel in bits/second
+    pub data_bitrate: u32,
 }
 
 /// Interface for interacting with CANtact devices
@@ -216,6 +263,7 @@ impl Interface {
                 loopback: false,
                 monitor: false,
                 fd: false,
+                data_bitrate: 0,
             });
         }
 
@@ -261,7 +309,7 @@ impl Interface {
                 flags |= GS_CAN_MODE_LOOP_BACK;
             }
             if ch.fd {
-                if (self.features & GS_CAN_FEATURE_FD) == 0 {
+                if !self.supports_fd() {
                     return Err(Error::UnsupportedFeature("FD"));
                 }
                 flags |= GS_CAN_MODE_FD;
@@ -334,6 +382,25 @@ impl Interface {
             .expect("failed to set bit timing");
 
         self.channels[channel].bitrate = bitrate;
+        Ok(())
+    }
+
+    /// Set CAN FD data bitrate for specified channel to requested bitrate value in bits per second.
+    pub fn set_data_bitrate(&mut self, channel: usize, bitrate: u32) -> Result<(), Error> {
+        if !self.supports_fd() {
+            return Err(Error::UnsupportedFeature("FD"));
+        }
+
+        if channel > self.channel_count {
+            return Err(Error::InvalidChannel);
+        }
+
+        let bt = calculate_bit_timing(self.can_clock, bitrate)?;
+        self.dev
+            .set_data_bit_timing(channel as u16, bt)
+            .expect("failed to set bit timing");
+
+        self.channels[channel].data_bitrate = bitrate;
         Ok(())
     }
 
@@ -412,7 +479,7 @@ impl Interface {
 
     /// Enable or disable CAN FD support for a channel
     pub fn set_fd(&mut self, channel: usize, enabled: bool) -> Result<(), Error> {
-        if self.features & GS_CAN_FEATURE_FD == 0 {
+        if !self.supports_fd() {
             return Err(Error::UnsupportedFeature("FD"));
         }
         if channel > self.channel_count {
@@ -424,6 +491,11 @@ impl Interface {
 
         self.channels[channel].fd = enabled;
         Ok(())
+    }
+
+    /// Returns true if device suports CAN-FD operation, false otherwise.
+    pub fn supports_fd(&self) -> bool {
+        (self.features & GS_CAN_FEATURE_FD) > 0
     }
 
     /// Send a CAN frame using the device

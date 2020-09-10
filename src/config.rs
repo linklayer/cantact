@@ -17,6 +17,7 @@ const APP_INFO: AppInfo = AppInfo {
 const CFG_FILE: &str = "cantact.toml";
 const DEFAULT_CONFIG: Channel = Channel {
     bitrate: 500_000,
+    data_bitrate: 500_000,
     loopback: false,
     monitor: false,
     fd: false,
@@ -88,7 +89,10 @@ impl Config {
             i.set_enabled(n, ch.enabled)?;
             i.set_loopback(n, ch.loopback)?;
             i.set_monitor(n, ch.monitor)?;
-            i.set_fd(n, ch.fd)?;
+            if i.supports_fd() {
+                i.set_fd(n, ch.fd)?;
+                i.set_data_bitrate(n, ch.data_bitrate)?;
+            }
         }
         Ok(())
     }

@@ -23,7 +23,7 @@ const CTRL_BUF_SIZE: usize = 64;
 // number of bulk in transfers
 const BULK_IN_TRANSFER_COUNT: usize = 32;
 // buffer size for bulk in transfer
-const BULK_IN_BUF_SIZE: usize = 32;
+const BULK_IN_BUF_SIZE: usize = 76;
 // timeout for bulk in transfers
 const BULK_IN_TIMEOUT_MS: u32 = 5000;
 
@@ -326,6 +326,14 @@ impl Device {
 
     pub(crate) fn set_bit_timing(&mut self, channel: u16, timing: BitTiming) -> Result<(), Error> {
         self.control_out(UsbBreq::BitTiming, channel, &timing.to_le_bytes())
+    }
+
+    pub(crate) fn set_data_bit_timing(
+        &mut self,
+        channel: u16,
+        timing: BitTiming,
+    ) -> Result<(), Error> {
+        self.control_out(UsbBreq::DataBitTiming, channel, &timing.to_le_bytes())
     }
 
     pub(crate) fn set_mode(&mut self, channel: u16, device_mode: Mode) -> Result<(), Error> {

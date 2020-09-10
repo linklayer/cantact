@@ -5,6 +5,8 @@
 pub(crate) const GSUSB_EXT_FLAG: u32 = 0x8000_0000;
 // can id is OR'd with flag when frame is RTR
 pub(crate) const GSUSB_RTR_FLAG: u32 = 0x4000_0000;
+// can id is OR'd with flag when frame is an error frame
+pub(crate) const GSUSB_ERR_FLAG: u32 = 0x2000_0000;
 // echo id for non-loopback frames
 pub(crate) const GSUSB_RX_ECHO_ID: u32 = 0xFFFF_FFFF;
 
@@ -30,6 +32,12 @@ pub(crate) const GS_CAN_MODE_HW_TIMESTAMP: u32 = 1 << 4;
 pub(crate) const GS_CAN_MODE_PAD_PKTS_TO_MAX_PKT_SIZE: u32 = 1 << 7;
 pub(crate) const GS_CAN_MODE_FD: u32 = 1 << 8;
 
+// frame flags bit map
+pub(crate) const GS_CAN_FLAG_OVERFLOW: u8 = 1;
+pub(crate) const GS_CAN_FLAG_FD: u8 = 1 << 1;
+pub(crate) const GS_CAN_FLAG_BRS: u8 = 1 << 2;
+pub(crate) const GS_CAN_FLAG_ESI: u8 = 1 << 3;
+
 #[repr(u8)]
 #[derive(Debug)]
 pub(crate) enum UsbBreq {
@@ -41,7 +49,9 @@ pub(crate) enum UsbBreq {
     DeviceConfig,
     Timestamp,
     Identify,
+    DataBitTiming,
 }
+
 #[repr(u8)]
 pub(crate) enum CanMode {
     Reset = 0,
@@ -153,7 +163,6 @@ impl DeviceConfig {
 }
 
 #[repr(C)]
-#[derive(Debug)]
 pub(crate) struct HostFrame {
     pub echo_id: u32,
     pub can_id: u32,
@@ -163,10 +172,13 @@ pub(crate) struct HostFrame {
     pub flags: u8,
     pub reserved: u8,
 
-    pub data: [u8; 8],
+    pub data: [u8; 64],
 }
 impl HostFrame {
     pub(crate) fn from_le_bytes(bs: &[u8]) -> HostFrame {
+        let mut data: [u8; 64] = [0u8; 64];
+        // copy data bytes to array
+        data[..(bs.len() - 12)].clone_from_slice(&bs[12..]);
         HostFrame {
             echo_id: u32_from_le_bytes(&bs[0..4]),
             can_id: u32_from_le_bytes(&bs[4..8]),
@@ -174,9 +186,7 @@ impl HostFrame {
             channel: bs[9],
             flags: bs[10],
             reserved: bs[11],
-            data: [
-                bs[12], bs[13], bs[14], bs[15], bs[16], bs[17], bs[18], bs[19],
-            ],
+            data,
         }
     }
     pub(crate) fn to_le_bytes(&self) -> Vec<u8> {

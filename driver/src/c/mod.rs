@@ -16,13 +16,16 @@ pub struct CFrame {
     channel: u8,
     id: u32,
     dlc: u8,
-    data: [u8; 8],
+    data: [u8; 64],
     // these types are boolean flags, but C FFI hates bools
     // use u8s instead: 1 = true, 0 = false
     ext: u8,
     fd: u8,
+    brs: u8,
+    esi: u8,
     loopback: u8,
     rtr: u8,
+    err: u8,
 }
 impl CFrame {
     fn from_frame(f: Frame) -> CFrame {
@@ -30,11 +33,14 @@ impl CFrame {
             channel: f.channel,
             id: f.can_id,
             dlc: f.can_dlc,
-            data: f.data,
+            data: f.data_as_array(),
             ext: if f.ext { 1 } else { 0 },
             fd: if f.fd { 1 } else { 0 },
+            brs: if f.brs { 1 } else { 0 },
+            esi: if f.esi { 1 } else { 0 },
             loopback: if f.loopback { 1 } else { 0 },
             rtr: if f.rtr { 1 } else { 0 },
+            err: if f.err { 1 } else { 0 },
         }
     }
 }
@@ -147,11 +153,14 @@ pub unsafe extern "C" fn cantact_transmit(ptr: *mut CInterface, cf: CFrame) -> i
         channel: 0, //cf.channel,
         can_id: cf.id,
         can_dlc: cf.dlc,
-        data: cf.data,
+        data: cf.data.to_vec(),
         ext: cf.ext > 0,
         fd: cf.fd > 0,
+        brs: cf.brs > 0,
+        esi: cf.esi > 0,
         loopback: false,
         rtr: cf.rtr > 0,
+        err: cf.err > 0,
         timestamp: None,
     };
     match &mut ci.i {

@@ -7,11 +7,24 @@ use crate::config::Config;
 use crate::helpers;
 
 fn print_frame(f: Frame) {
-    let mut s = format!(
-        "{:?}  ch:{}  {:03X}   [{}]  ",
-        f.timestamp, f.channel, f.can_id, f.can_dlc
-    );
-    for b in f.data.iter().take(f.can_dlc as usize) {
+    let ts = match f.timestamp {
+        Some(t) => format!("{:.6}\t", t.as_secs_f32()),
+        None => String::new(),
+    };
+
+    if f.err {
+        println!("{}  ch:{} error frame", ts, f.channel);
+    }
+
+    let mut s = format!("{}  ch:{} {:03X}", ts, f.channel, f.can_id,);
+
+    s = if f.fd {
+        format!("{}   [{:02}]  ", s, f.data_len())
+    } else {
+        format!("{}   [{:01}]  ", s, f.data_len())
+    };
+
+    for b in f.data.iter().take(f.data_len()) {
         s = format!("{}{:02X} ", s, b);
     }
     println!("{}", s)
