@@ -19,6 +19,7 @@ const DEFAULT_CONFIG: Channel = Channel {
     bitrate: 500_000,
     loopback: false,
     monitor: false,
+    fd: false,
     enabled: true,
 };
 
@@ -87,6 +88,7 @@ impl Config {
             i.set_enabled(n, ch.enabled)?;
             i.set_loopback(n, ch.loopback)?;
             i.set_monitor(n, ch.monitor)?;
+            i.set_fd(n, ch.fd)?;
         }
         Ok(())
     }

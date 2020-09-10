@@ -9,8 +9,26 @@ pub(crate) const GSUSB_RTR_FLAG: u32 = 0x4000_0000;
 pub(crate) const GSUSB_RX_ECHO_ID: u32 = 0xFFFF_FFFF;
 
 // device features bit map
-pub(crate) const GSUSB_FEATURE_LISTEN_ONLY: u32 = 1;
-pub(crate) const GSUSB_FEATURE_LOOP_BACK: u32 = 1 << 1;
+pub(crate) const GS_CAN_FEATURE_NORMAL: u32 = 0;
+pub(crate) const GS_CAN_FEATURE_LISTEN_ONLY: u32 = 1;
+pub(crate) const GS_CAN_FEATURE_LOOP_BACK: u32 = 1 << 1;
+pub(crate) const GS_CAN_FEATURE_TRIPLE_SAMPLE: u32 = 1 << 2;
+pub(crate) const GS_CAN_FEATURE_ONE_SHOT: u32 = 1 << 3;
+pub(crate) const GS_CAN_FEATURE_HW_TIMESTAMP: u32 = 1 << 4;
+pub(crate) const GS_CAN_FEATURE_IDENTIFY: u32 = 1 << 5;
+pub(crate) const GS_CAN_FEATURE_USER_ID: u32 = 1 << 6;
+pub(crate) const GS_CAN_FEATURE_PAD_PKTS_TO_MAX_PKT_SIZE: u32 = 1 << 7;
+pub(crate) const GS_CAN_FEATURE_FD: u32 = 1 << 8;
+
+// device mode bit map
+pub(crate) const GS_CAN_MODE_NORMAL: u32 = 0;
+pub(crate) const GS_CAN_MODE_LISTEN_ONLY: u32 = 1;
+pub(crate) const GS_CAN_MODE_LOOP_BACK: u32 = 1 << 1;
+pub(crate) const GS_CAN_MODE_TRIPLE_SAMPLE: u32 = 1 << 2;
+pub(crate) const GS_CAN_MODE_ONE_SHOT: u32 = 1 << 3;
+pub(crate) const GS_CAN_MODE_HW_TIMESTAMP: u32 = 1 << 4;
+pub(crate) const GS_CAN_MODE_PAD_PKTS_TO_MAX_PKT_SIZE: u32 = 1 << 7;
+pub(crate) const GS_CAN_MODE_FD: u32 = 1 << 8;
 
 #[repr(u8)]
 #[derive(Debug)]
@@ -83,7 +101,7 @@ impl BitTiming {
 #[derive(Debug)]
 #[repr(C)]
 pub(crate) struct BitTimingConsts {
-    feature: u32,
+    pub(crate) feature: u32,
     pub(crate) fclk_can: u32,
     tseg1_min: u32,
     tseg1_max: u32,

@@ -33,6 +33,10 @@ subcommands:
             short: l
             long: loopback
             help: Enable hardware loopback mode
+        - fd:
+            short: f
+            long: fd
+            help: Enable CAN-FD mode
     - dump:
         about: Receive and display CAN frames
         args:

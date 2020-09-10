@@ -34,6 +34,12 @@ pub fn cmd(matches: &ArgMatches) -> Result<(), Error> {
         config.channels[ch].monitor = false;
     }
 
+    if matches.is_present("fd") {
+        config.channels[ch].fd = true;
+    } else {
+        config.channels[ch].fd = false;
+    }
+
     if matches.is_present("bitrate") {
         let bitrate = match matches.value_of("bitrate").unwrap().parse::<u32>() {
             Err(_) => {

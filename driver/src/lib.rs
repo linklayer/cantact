@@ -42,6 +42,8 @@ pub enum Error {
     InvalidChannel,
     /// The requested bitrate cannot be set within an acceptable tolerance
     InvalidBitrate(u32),
+    /// The requested set of features is not supported by the device
+    UnsupportedFeature(&'static str),
 }
 impl From<device::Error> for Error {
     fn from(e: device::Error) -> Error {
@@ -159,6 +161,8 @@ pub struct Channel {
     pub loopback: bool,
     /// When true, device will not transmit on the bus.
     pub monitor: bool,
+    /// When true, CAN FD is enabled for the device
+    pub fd: bool,
 }
 
 /// Interface for interacting with CANtact devices
@@ -171,6 +175,7 @@ pub struct Interface {
     channel_count: usize,
     sw_version: u32,
     hw_version: u32,
+    features: u32,
 
     channels: Vec<Channel>,
 }
@@ -210,6 +215,7 @@ impl Interface {
                 enabled: true,
                 loopback: false,
                 monitor: false,
+                fd: false,
             });
         }
 
@@ -221,6 +227,7 @@ impl Interface {
             can_clock: bt_consts.fclk_can,
             sw_version: dev_config.sw_version,
             hw_version: dev_config.hw_version,
+            features: bt_consts.feature,
 
             channels,
         };
@@ -239,11 +246,25 @@ impl Interface {
         // tell the device to go on bus
         for (i, ch) in self.channels.iter().enumerate() {
             let mut flags = 0;
+            // for each mode flag, check that the feature is supported before applying feature
+            // this is necessary since the feature flags are pub
             if ch.monitor {
-                flags |= GSUSB_FEATURE_LISTEN_ONLY;
+                if (self.features & GS_CAN_FEATURE_LISTEN_ONLY) == 0 {
+                    return Err(Error::UnsupportedFeature("Monitor"));
+                }
+                flags |= GS_CAN_MODE_LISTEN_ONLY;
             }
             if ch.loopback {
-                flags |= GSUSB_FEATURE_LOOP_BACK;
+                if (self.features & GS_CAN_FEATURE_LOOP_BACK) == 0 {
+                    return Err(Error::UnsupportedFeature("Loopback"));
+                }
+                flags |= GS_CAN_MODE_LOOP_BACK;
+            }
+            if ch.fd {
+                if (self.features & GS_CAN_FEATURE_FD) == 0 {
+                    return Err(Error::UnsupportedFeature("FD"));
+                }
+                flags |= GS_CAN_MODE_FD;
             }
 
             let mode = Mode {
@@ -341,6 +362,9 @@ impl Interface {
     /// Enable or disable a channel's listen only mode. When this mode is enabled,
     /// the device will not transmit any frames, errors, or acknowledgements.
     pub fn set_monitor(&mut self, channel: usize, enabled: bool) -> Result<(), Error> {
+        if self.features & GS_CAN_FEATURE_LISTEN_ONLY == 0 {
+            return Err(Error::UnsupportedFeature("Monitor"));
+        }
         if channel > self.channel_count {
             return Err(Error::InvalidChannel);
         }
@@ -372,6 +396,9 @@ impl Interface {
     ///
     /// This mode is primarily intended for device testing!
     pub fn set_loopback(&mut self, channel: usize, enabled: bool) -> Result<(), Error> {
+        if self.features & GS_CAN_FEATURE_LOOP_BACK == 0 {
+            return Err(Error::UnsupportedFeature("Loopback"));
+        }
         if channel > self.channel_count {
             return Err(Error::InvalidChannel);
         }
@@ -380,6 +407,22 @@ impl Interface {
         }
 
         self.channels[channel].loopback = enabled;
+        Ok(())
+    }
+
+    /// Enable or disable CAN FD support for a channel
+    pub fn set_fd(&mut self, channel: usize, enabled: bool) -> Result<(), Error> {
+        if self.features & GS_CAN_FEATURE_FD == 0 {
+            return Err(Error::UnsupportedFeature("FD"));
+        }
+        if channel > self.channel_count {
+            return Err(Error::InvalidChannel);
+        }
+        if *self.running.read().unwrap() {
+            return Err(Error::Running);
+        }
+
+        self.channels[channel].fd = enabled;
         Ok(())
     }
 
