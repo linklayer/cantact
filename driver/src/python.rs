@@ -123,7 +123,7 @@ impl PyInterface {
         dlc: u8,
         data: Vec<u8>,
     ) -> PyResult<()> {
-        let mut data_array = [0u8; 8];
+        let mut data_array: Vec<u8> = vec![];
         for i in 0..dlc as usize {
             data_array[i] = data[i];
         }
@@ -136,6 +136,9 @@ impl PyInterface {
             channel: channel,
             loopback: false,
             fd: false,
+            brs: false,
+            err: false,
+            esi: false,
             timestamp: None,
         })?;
         Ok(())
