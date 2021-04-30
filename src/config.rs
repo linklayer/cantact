@@ -1,19 +1,14 @@
 use crate::Error;
-use app_dirs::*;
+use directories::{ProjectDirs};
 use cantact::{Channel, Interface};
 use log::info;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use std::fs;
-use std::fs::File;
-use std::io;
-use std::io::prelude::*;
+use std::fs::{self, File};
+use std::io::{self, Write};
 use std::path::Path;
 
-const APP_INFO: AppInfo = AppInfo {
-    name: "cantact",
-    author: "Linklayer",
-};
+
 const CFG_FILE: &str = "cantact.toml";
 const DEFAULT_CONFIG: Channel = Channel {
     bitrate: 500_000,
@@ -47,12 +42,11 @@ impl Config {
     }
 
     // since config files are not mandatory, this should never fail
+    // TODO: Perhaps implement ProjectDirs::from_path check as backwards compat w/ 0.0.1??
     pub fn read() -> Config {
-        let dir = match get_app_root(AppDataType::UserConfig, &APP_INFO) {
-            Ok(d) => d,
-            Err(_) => return Config::default(),
-        };
-        let filename = Path::new("").join(dir).join(CFG_FILE);
+        let dir = ProjectDirs::from("com", "linklayer", "cantact");
+
+        let filename = Path::new(dir.unwrap().config_dir()).join(CFG_FILE);
         let s = match fs::read_to_string(&filename) {
             Ok(s) => s,
             Err(_) => return Config::default(),
@@ -63,16 +57,8 @@ impl Config {
     }
 
     pub fn write(&self) -> io::Result<()> {
-        let dir = match get_app_root(AppDataType::UserConfig, &APP_INFO) {
-            Ok(d) => d,
-            Err(AppDirsError::NotSupported) => panic!("platform does not support configuation"),
-            Err(AppDirsError::Io(e)) => {
-                panic!("IO error determining configuration location: {:?}", e)
-            }
-            Err(AppDirsError::InvalidAppInfo) => panic!("app info struct is invalid"),
-        };
-        fs::create_dir_all(&dir)?;
-        let filename = Path::new("").join(dir).join(CFG_FILE);
+        let dir = ProjectDirs::from("com", "linklayer", "cantact");
+        let filename = Path::new(dir.unwrap().config_dir()).join(CFG_FILE);
         info!("writing configuration to {:?}", filename);
 
         let mut file = File::create(filename)?;

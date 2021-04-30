@@ -21,7 +21,7 @@ pub fn cmd(_matches: &ArgMatches) -> Result<(), Error> {
     f.can_dlc = 8;
     loop {
         f.can_id = count % 0x800;
-        i.send(f.clone()).unwrap();
+        i.send(f.clone())?;
         count += 1;
         if count % 1000 == 0 {
             println!("{}", count)
