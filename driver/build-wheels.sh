@@ -9,7 +9,7 @@ cd driver/
 for PYBIN in /opt/python/{cp35-cp35m,cp36-cp36m,cp37-cp37m,cp38-cp38}/bin; do
     export PYTHON_SYS_EXECUTABLE="$PYBIN/python"
 
-    "${PYBIN}/pip" install -U setuptools wheel setuptools-rust
+    "${PYBIN}/python" -m pip install -U setuptools wheel setuptools-rust
     "${PYBIN}/python" setup.py bdist_wheel
 done
 
