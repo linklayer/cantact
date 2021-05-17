@@ -52,6 +52,18 @@ pub fn cmd(matches: &ArgMatches) -> Result<(), Error> {
         config.channels[ch].bitrate = bitrate;
     }
 
+    if matches.is_present("data_bitrate") {
+        let data_bitrate = match matches.value_of("data_bitrate").unwrap().parse::<u32>() {
+            Err(_) => {
+                return Err(Error::InvalidArgument(String::from(
+                    "invalid data_bitrate value",
+                )))
+            }
+            Ok(b) => b,
+        };
+        config.channels[ch].data_bitrate = data_bitrate;
+    }
+
     config.write().unwrap();
 
     print!("{}", config);

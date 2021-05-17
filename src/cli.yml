@@ -21,6 +21,11 @@ subcommands:
             long: bitrate
             help: Channel bitrate in bits/second
             takes_value: true
+        - data_bitrate:
+            short: z
+            long: data_bitrate
+            help: Channel data bitrate in bits/second (used only in CAN-FD mode)
+            takes_value: true
         - disable:
             short: d
             long: disable
