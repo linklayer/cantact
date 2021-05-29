@@ -528,7 +528,7 @@ fn calculate_bit_timing(clk: u32, bitrate: u32) -> Result<BitTiming, Error> {
             let btq = tmp / brp as f32;
             let btq_rounded = btq.round() as u32;
 
-            if btq_rounded >= 4 && btq_rounded <= 32 {
+            if (4..=32).contains(&btq_rounded) {
                 let err = ((btq / (btq_rounded as f32) - 1.0) * 10000.0).round() / 10000.0;
                 if err.abs() > tolerance {
                     // error is not acceptable

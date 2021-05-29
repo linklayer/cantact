@@ -242,7 +242,7 @@ impl Device {
         self.ctrl_buf[7] = (data.len() >> 8) as u8;
 
         // copy control out data
-        self.ctrl_buf[8..(data.len() + 8)].clone_from_slice(&data[..]);
+        self.ctrl_buf[8..(data.len() + 8)].clone_from_slice(data);
 
         transfer.dev_handle = self.hnd.as_ptr();
         transfer.endpoint = 0;
