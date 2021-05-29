@@ -1,6 +1,6 @@
 [package]
 name = "cantact"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Eric Evenchick <eric@evenchick.com>"]
 license = "MIT"
 keywords = ["can", "usb"]
@@ -8,7 +8,7 @@ categories = ["command-line-utilities", "hardware-support"]
 repository = "https://github.com/linklayer/cantact"
 homepage = "http://cantact.io/"
 readme = "README.md"
-description = "and CLI for CANtact Controller Area Network tools."
+description = "CLI for CANtact Controller Area Network tools."
 
 edition = "2018"
 default-run="can"
