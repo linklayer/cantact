@@ -402,7 +402,7 @@ impl Device {
     pub(crate) fn recv(&self) -> HostFrame {
         match self.can_rx_recv.recv() {
             Ok(f) => f,
-            Err(e) => panic!(e),
+            Err(e) => panic!("{}", e),
         }
     }
 }
