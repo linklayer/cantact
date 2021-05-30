@@ -27,9 +27,9 @@ fn main() {
     let matches = App::from(yaml).get_matches();
 
     let logger = if matches.is_present("verbose") {
-        TermLogger::init(LevelFilter::Info, Config::default(), TerminalMode::Mixed)
+        TermLogger::init(LevelFilter::Info, Config::default(), TerminalMode::Mixed, ColorChoice::Auto)
     } else {
-        TermLogger::init(LevelFilter::Warn, Config::default(), TerminalMode::Mixed)
+        TermLogger::init(LevelFilter::Warn, Config::default(), TerminalMode::Mixed, ColorChoice::Auto)
     };
     logger.expect("failed to initialize logging");
 

@@ -66,7 +66,7 @@ pub struct Frame {
     pub channel: u8,
 
     /// Frame data contents.
-    pub data: Vec<u8>,
+    pub data: [u8; 64],
 
     /// Extended (29 bit) arbitration identifier if true,
     /// standard (11 bit) arbitration identifer if false.
@@ -95,11 +95,6 @@ pub struct Frame {
     pub timestamp: Option<time::Duration>,
 }
 impl Frame {
-    fn data_as_array(&self) -> [u8; 64] {
-        let mut data = [0u8; 64];
-        data[..64].clone_from_slice(&self.data[..64]);
-        data
-    }
     // convert to a frame format expected by the device
     fn to_host_frame(&self) -> HostFrame {
         // if frame is extended, set the extended bit in host frame CAN ID
@@ -127,7 +122,7 @@ impl Frame {
             can_id,
             can_dlc: self.can_dlc,
             channel: self.channel,
-            data: self.data_as_array(),
+            data: self.data,
         }
     }
     /// Returns a default CAN frame with all values set to zero/false.
@@ -135,7 +130,7 @@ impl Frame {
         Frame {
             can_id: 0,
             can_dlc: 0,
-            data: vec![],
+            data: [0; 64],
             channel: 0,
             ext: false,
             fd: false,
@@ -166,7 +161,7 @@ impl Frame {
         Frame {
             can_id,
             can_dlc: hf.can_dlc,
-            data: hf.data.to_vec(),
+            data: hf.data,
             channel: hf.channel,
             ext,
             loopback,
@@ -504,7 +499,7 @@ impl Interface {
             return Err(Error::NotRunning);
         }
 
-        self.dev.send(f.to_host_frame()).unwrap();
+        self.dev.send(f.to_host_frame())?;
         Ok(())
     }
 
