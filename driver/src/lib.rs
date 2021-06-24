@@ -135,7 +135,7 @@ impl Frame {
         Frame {
             can_id: 0,
             can_dlc: 0,
-            data: vec![],
+            data: vec![0; 64],
             channel: 0,
             ext: false,
             fd: false,
