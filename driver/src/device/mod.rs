@@ -29,7 +29,7 @@ const BULK_IN_TIMEOUT_MS: u32 = 5000;
 
 #[derive(Debug)]
 pub enum Error {
-    LibusbError(&'static str, i32),
+    Libusb(&'static str, i32),
     DeviceNotFound,
     TransferAllocFailed,
     InvalidControlResponse,
@@ -128,12 +128,12 @@ impl Device {
             LIBUSB_SUCCESS => {}
             LIBUSB_ERROR_NOT_FOUND => { /* device already disconnected */ }
             LIBUSB_ERROR_NOT_SUPPORTED => { /* can't detach on this system (not linux) */ }
-            e => return Err(Error::LibusbError("libusb_detach_kernel_driver", e)),
+            e => return Err(Error::Libusb("libusb_detach_kernel_driver", e)),
         }
 
         match unsafe { libusb_claim_interface(hnd, 0) } {
             LIBUSB_SUCCESS => {}
-            e => return Err(Error::LibusbError("libusb_claim_interface", e)),
+            e => return Err(Error::Libusb("libusb_claim_interface", e)),
         }
 
         let ctrl_transfer = unsafe { libusb_alloc_transfer(0) };
@@ -193,7 +193,7 @@ impl Device {
             match unsafe { libusb_submit_transfer(self.in_transfers[i]) } {
                 LIBUSB_SUCCESS => {}
                 e => {
-                    return Err(Error::LibusbError(
+                    return Err(Error::Libusb(
                         "start_transfers: libusb_submit_transfer",
                         e,
                     ))
@@ -213,7 +213,7 @@ impl Device {
             match unsafe { libusb_cancel_transfer(*xfer) } {
                 LIBUSB_SUCCESS => {}
                 LIBUSB_ERROR_NOT_FOUND => { /* already destroyed */ }
-                e => return Err(Error::LibusbError("libusb_cancel_transfer", e)),
+                e => return Err(Error::Libusb("libusb_cancel_transfer", e)),
             }
         }
         Ok(())
@@ -289,7 +289,7 @@ impl Device {
         *self.ctrl_transfer_pending.write().unwrap() = true;
         match unsafe { libusb_submit_transfer(self.ctrl_transfer.as_ptr()) } {
             LIBUSB_SUCCESS => {}
-            e => return Err(Error::LibusbError("control_out: libusb_submit_transfer", e)),
+            e => return Err(Error::Libusb("control_out: libusb_submit_transfer", e)),
         }
 
         // wait for transfer to complete
@@ -301,11 +301,11 @@ impl Device {
     fn control_in(&mut self, req: UsbBreq, channel: u16, len: usize) -> Result<Vec<u8>, Error> {
         // bmRequestType: direction = in, type = vendor, recipient = interface
         let rt = 0b1100_0001;
-        self.fill_control_transfer(rt, req as u8, channel, 0, &vec![0u8; len].as_slice());
+        self.fill_control_transfer(rt, req as u8, channel, 0, vec![0u8; len].as_slice());
         *self.ctrl_transfer_pending.write().unwrap() = true;
         match unsafe { libusb_submit_transfer(self.ctrl_transfer.as_ptr()) } {
             LIBUSB_SUCCESS => {}
-            e => return Err(Error::LibusbError("control_in: libusb_submit_transfer", e)),
+            e => return Err(Error::Libusb("control_in: libusb_submit_transfer", e)),
         }
 
         // wait for transfer to complete
@@ -383,7 +383,7 @@ impl Device {
 
         match unsafe { libusb_submit_transfer(self.out_transfer.as_ptr()) } {
             LIBUSB_SUCCESS => {}
-            e => return Err(Error::LibusbError("send: libusb_submit_transfer", e)),
+            e => return Err(Error::Libusb("send: libusb_submit_transfer", e)),
         }
 
         // wait for transfer to complete

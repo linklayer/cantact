@@ -50,7 +50,7 @@ impl PyInterface {
 
         let (send, recv) = unbounded();
         Ok(PyInterface {
-            i: i,
+            i,
             rx_recv: recv,
             rx_send: send,
         })
@@ -90,7 +90,7 @@ impl PyInterface {
         self.i.start(move |f: Frame| {
             match rx.send(f) {
                 Ok(_) => {}
-                Err(_) => { /*TODO*/ }
+                Err(_) => { panic!("error starting device") }
             };
         })?;
 
@@ -123,17 +123,19 @@ impl PyInterface {
         dlc: u8,
         data: Vec<u8>,
     ) -> PyResult<()> {
-        let mut data_array: Vec<u8> = vec![];
+        let mut data_array: Vec<u8> = vec![0; 64];
         for i in 0..dlc as usize {
-            data_array[i] = data[i];
+            if i < dlc.into() {
+                data_array[i] = data[i];
+            }
         }
         self.i.send(Frame {
             can_id: id,
             can_dlc: dlc,
-            ext: ext,
-            rtr: rtr,
+            ext,
+            rtr,
             data: data_array,
-            channel: channel,
+            channel,
             loopback: false,
             fd: false,
             brs: false,
