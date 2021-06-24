@@ -1,5 +1,5 @@
 name: can
-version: "0.1.0"
+version: "0.1.2"
 author: Eric Evenchick <eric@evenchick.com>
 about:  Command line utilities for CANtact devices
 args:
