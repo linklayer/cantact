@@ -34,7 +34,7 @@ pub fn cmd(matches: &ArgMatches) -> Result<(), Error> {
     let flag = helpers::initialize_ctrlc();
     let mut config = Config::read();
 
-    let ch = helpers::parse_channel(&matches)?;
+    let ch = helpers::parse_channel(matches)?;
     match ch {
         None => { /* no channel specified, follow config */ }
         Some(ch) => {

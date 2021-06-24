@@ -90,7 +90,9 @@ impl PyInterface {
         self.i.start(move |f: Frame| {
             match rx.send(f) {
                 Ok(_) => {}
-                Err(_) => { panic!("error starting device") }
+                Err(_) => {
+                    panic!("error starting device")
+                }
             };
         })?;
 
