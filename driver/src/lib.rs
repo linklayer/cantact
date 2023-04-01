@@ -122,7 +122,7 @@ impl Frame {
 
         HostFrame {
             echo_id: 1,
-            flags: 0,
+            flags: if self.fd { GS_CAN_FLAG_FD } else { 0 },
             reserved: 0,
             can_id,
             can_dlc: self.can_dlc,
