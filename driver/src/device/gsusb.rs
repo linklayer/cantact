@@ -197,7 +197,11 @@ impl HostFrame {
         data.push(self.channel);
         data.push(self.flags);
         data.push(self.reserved);
-        data.extend_from_slice(&self.data);
+        if ((self.flags & GS_CAN_FLAG_FD) != 0 || self.can_dlc > 8) {
+            data.extend_from_slice(&self.data);
+        } else { // legacy gs_host_frame is limited to 8 bytes of data
+            data.extend_from_slice(&self.data[..8]);
+        }
         data
     }
 }
