@@ -1,7 +1,7 @@
 #!/bin/bash
 set -ex
 
-yum install libusb-devel libusbx-devel
+yum install -y libusb-devel libusbx-devel
 
 curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly -y
 export PATH="$HOME/.cargo/bin:$PATH"
