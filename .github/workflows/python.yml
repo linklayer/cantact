@@ -74,7 +74,7 @@ jobs:
         python -m twine upload --skip-existing driver/dist/*        
   build_windows:
     name: Windows Build
-    runs-on: windows-latest-${{ matrix.python-version }}
+    runs-on: windows-latest
     strategy:
       matrix:
         python-version: [3.8, 3.9, "3.10", 3.11, 3.12]
