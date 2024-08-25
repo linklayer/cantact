@@ -41,7 +41,7 @@ jobs:
       run: |
         python -m twine upload --skip-existing driver/dist/* 
   build_manylinux:
-    name: manylinux Build
+    name: manylinux2014 Build
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -55,7 +55,7 @@ jobs:
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: dist
+        name: dist-manylinux2014
         path: driver/dist/
     - name: Publish to TestPyPI
       env:
@@ -103,7 +103,7 @@ jobs:
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: dist
+        name: dist-windows
         path: driver/dist
     - name: Publish to TestPyPI
       env:
