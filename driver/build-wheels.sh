@@ -1,12 +1,14 @@
 #!/bin/bash
 set -ex
 
+yum install libusb-devel libusbx-devel
+
 curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly -y
 export PATH="$HOME/.cargo/bin:$PATH"
 
 cd driver/
 
-for PYBIN in /opt/python/{cp36-cp36m,cp37-cp37m,cp38-cp38,cp39-cp39,cp310-cp310}/bin; do
+for PYBIN in /opt/python/{cp38-cp38,cp39-cp39,cp310-cp310,cp311-cp311,cp312-cp312}/bin; do
     export PYTHON_SYS_EXECUTABLE="$PYBIN/python"
 
     "${PYBIN}/python" -m pip install -U setuptools wheel setuptools-rust
