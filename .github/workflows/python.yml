@@ -127,6 +127,13 @@ jobs:
       uses: actions/setup-python@v1
       with:
         python-version: ${{ matrix.python-version }}  
+    - name: Install libusb
+      run: | 
+        git clone https://github.com/Microsoft/vcpkg.git
+        cd vcpkg
+        ./bootstrap-vcpkg.bat
+        ./vcpkg integrate install
+        vcpkg install libusb
     - name: Install Latest Rust Nightly
       uses: actions-rs/toolchain@v1
       with:
