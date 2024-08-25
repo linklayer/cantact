@@ -9,7 +9,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Install Build Deps
-        run: sudo apt install libusb-1.0-0-dev libusb-1.0.0
+        run: sudo apt install libusb-1.0-0-dev
       - name: setup pkg-config
         run: export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/share/pkgconfig
       - name: Install Latest Nightly
@@ -24,6 +24,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
+      - name: Install Build Deps
+        run: sudo apt install libusb-1.0-0-dev
+      - name: setup pkg-config
+        run: export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/share/pkgconfig
       - uses: actions-rs/toolchain@v1
         with:
             toolchain: nightly
