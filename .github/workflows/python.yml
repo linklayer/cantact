@@ -103,7 +103,8 @@ jobs:
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: dist-windows
+        name: dist-windows-${{ matrix.python-version }}
+
         path: driver/dist
     - name: Publish to TestPyPI
       env:
