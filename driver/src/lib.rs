@@ -97,7 +97,8 @@ pub struct Frame {
 impl Frame {
     fn data_as_array(&self) -> [u8; 64] {
         let mut data = [0u8; 64];
-        data[..64].clone_from_slice(&self.data[..64]);
+        let len = std::cmp::min(self.data.len(), data.len());
+        data[..len].copy_from_slice(&self.data[..len]);
         data
     }
     // convert to a frame format expected by the device
@@ -122,7 +123,7 @@ impl Frame {
 
         HostFrame {
             echo_id: 1,
-            flags: 0,
+            flags: if self.fd { GS_CAN_FLAG_FD } else { 0 },
             reserved: 0,
             can_id,
             can_dlc: self.can_dlc,
