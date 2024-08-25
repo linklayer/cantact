@@ -9,7 +9,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Install Build Deps
-        run: sudo apt install libusb-1.0-0-dev
+        run: sudo apt install libusb-1.0-0-dev libusb-1.0.0
       - name: setup pkg-config
         run: export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/share/pkgconfig
       - name: Install Latest Nightly
@@ -18,10 +18,7 @@ jobs:
             toolchain: nightly
             override: true
       - name: Run Cargo Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --all-features
+        run: cargo build --release --all-features
   clippy_check:
     name: Clippy Check
     runs-on: ubuntu-latest
