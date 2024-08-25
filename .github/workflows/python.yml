@@ -91,7 +91,7 @@ jobs:
         cd vcpkg
         ./bootstrap-vcpkg.bat
         ./vcpkg integrate install
-          vcpkg install libusb:x64-windows-static
+          vcpkg install libusb:x64-windows-static-md
     - name: Install Latest Rust Nightly
       uses: actions-rs/toolchain@v1
       with:
