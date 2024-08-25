@@ -7,21 +7,20 @@ jobs:
     name: sdist Build
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Install Build Deps
       run: sudo apt install libusb-1.0-0-dev
     - name: setup pkg-config
       run: export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/share/pkgconfig
 
     - name: Set up Python
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v5
       with:
         python-version: 3.12
     - name: Install Latest Rust Nightly
-      uses: actions-rs/toolchain@v1
+      uses: dtolnay/rust-toolchain@master
       with:
         toolchain: nightly
-        override: true
     - name: Python Build
       run: |
         pip install -U setuptools wheel setuptools-rust twine
@@ -48,7 +47,7 @@ jobs:
       matrix:
         python-version: [3.8, 3.9, "3.10", 3.11, 3.12]
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Run manylinux Builds
       uses: docker://quay.io/pypa/manylinux2014_x86_64
       with:
@@ -80,9 +79,9 @@ jobs:
       matrix:
         python-version: [3.8, 3.9, "3.10", 3.11, 3.12]
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}  
     - name: Install libusb
@@ -93,10 +92,9 @@ jobs:
         ./vcpkg integrate install
           vcpkg install libusb:x64-windows-static-md
     - name: Install Latest Rust Nightly
-      uses: actions-rs/toolchain@v1
+      uses: dtolnay/rust-toolchain@master
       with:
         toolchain: nightly
-        override: true
     - name: Python Build
       run: |
         pip install -U setuptools wheel setuptools-rust twine
