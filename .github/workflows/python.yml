@@ -7,16 +7,20 @@ jobs:
     name: sdist Build
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
+    - name: Install Build Deps
+      run: sudo apt install libusb-1.0-0-dev
+    - name: setup pkg-config
+      run: export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/share/pkgconfig
+
     - name: Set up Python
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v5
       with:
         python-version: 3.12
     - name: Install Latest Rust Nightly
-      uses: actions-rs/toolchain@v1
+      uses: dtolnay/rust-toolchain@master
       with:
         toolchain: nightly
-        override: true
     - name: Python Build
       run: |
         pip install -U setuptools wheel setuptools-rust twine
@@ -37,21 +41,21 @@ jobs:
       run: |
         python -m twine upload --skip-existing driver/dist/* 
   build_manylinux:
-    name: manylinux Build
+    name: manylinux2014 Build
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.8, 3.9, 3.10, 3.11, 3.12]
+        python-version: [3.8, 3.9, "3.10", 3.11, 3.12]
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Run manylinux Builds
-      uses: docker://quay.io/pypa/manylinux2010_x86_64
+      uses: docker://quay.io/pypa/manylinux2014_x86_64
       with:
         entrypoint: driver/build-wheels.sh
     - name: Upload Artifacts
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v4
       with:
-        name: dist
+        name: dist-manylinux2014-${{ matrix.python-version }}
         path: driver/dist/
     - name: Publish to TestPyPI
       env:
@@ -68,74 +72,38 @@ jobs:
         TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
       run: |
         python -m twine upload --skip-existing driver/dist/*        
-  build_macos:
-    name: macOS Build
-    runs-on: macos-latest
-    strategy:
-      matrix:
-        python-version: [3.8, 3.9, 3.10, 3.11, 3.12]
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v1
-      with:
-        python-version: ${{ matrix.python-version }}  
-    - name: Install Latest Rust Nightly
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: nightly
-        override: true
-    - name: Python Build
-      run: |
-        pip install -U setuptools wheel setuptools-rust twine
-        cd driver
-        python setup.py build bdist_wheel
-        mv dist/cantact-*-macos*.whl $(echo dist/cantact-*-macos*.whl | sed 's/macosx_.*/macosx_10_15_x86_64.macosx_10_14_x86_64.macosx_10_13_x86_64.macosx_10_12_x86_64.whl/')
-    - name: Upload Artifacts
-      uses: actions/upload-artifact@v1
-      with:
-        name: dist
-        path: driver/dist
-    - name: Publish to TestPyPI
-      env:
-        TWINE_USERNAME: ericevenchick
-        TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
-        TWINE_REPOSITORY: testpypi
-      run: |
-        python -m twine upload --skip-existing driver/dist/*
-    - name: Publish to PyPI
-      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
-      env:
-        TWINE_USERNAME: ericevenchick
-        TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
-      run: |
-        python -m twine upload --skip-existing driver/dist/*
   build_windows:
     name: Windows Build
-    runs-on: windows-latest
+    runs-on: windows-latest-${{ matrix.python-version }}
     strategy:
       matrix:
-        python-version: [3.8, 3.9, 3.10, 3.11, 3.12]
+        python-version: [3.8, 3.9, "3.10", 3.11, 3.12]
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}  
+    - name: Install libusb
+      run: | 
+        git clone https://github.com/Microsoft/vcpkg.git
+        cd vcpkg
+        ./bootstrap-vcpkg.bat
+        ./vcpkg integrate install
+          vcpkg install libusb:x64-windows-static-md
     - name: Install Latest Rust Nightly
-      uses: actions-rs/toolchain@v1
+      uses: dtolnay/rust-toolchain@master
       with:
         toolchain: nightly
-        override: true
     - name: Python Build
       run: |
         pip install -U setuptools wheel setuptools-rust twine
         cd driver
         python setup.py build bdist_wheel
     - name: Upload Artifacts
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v4
       with:
-        name: dist
+        name: dist-windows
         path: driver/dist
     - name: Publish to TestPyPI
       env:
