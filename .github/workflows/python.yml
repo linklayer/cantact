@@ -11,7 +11,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v1
       with:
-        python-version: 3.8
+        python-version: 3.12
     - name: Install Latest Rust Nightly
       uses: actions-rs/toolchain@v1
       with:
@@ -39,6 +39,9 @@ jobs:
   build_manylinux:
     name: manylinux Build
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8, 3.9, 3.10, 3.11, 3.12]
     steps:
     - uses: actions/checkout@v2
     - name: Run manylinux Builds
@@ -70,7 +73,7 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        python-version: [3.6, 3.7, 3.8, 3.9]
+        python-version: [3.8, 3.9, 3.10, 3.11, 3.12]
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
@@ -112,7 +115,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        python-version: [3.6, 3.7, 3.8, 3.9]
+        python-version: [3.8, 3.9, 3.10, 3.11, 3.12]
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
