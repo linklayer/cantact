@@ -8,6 +8,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - name: Install Build Deps
+      run: sudo apt install libusb-1.0-0-dev
+    - name: setup pkg-config
+      run: export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/share/pkgconfig
+
     - name: Set up Python
       uses: actions/setup-python@v1
       with:
